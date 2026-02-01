@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 export const ResetPassword = () => {
     const { t } = useTranslation();
-    const { user, signOut } = useAuth();
+    const { signOut } = useAuth();
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -34,10 +34,13 @@ export const ResetPassword = () => {
 
             if (resetError) throw resetError;
 
+            // Mark success and sign out to force fresh login
             setSuccess(true);
+            await signOut();
+
             setTimeout(() => {
-                navigate('/');
-            }, 2000);
+                navigate('/login');
+            }, 3000);
         } catch (err: any) {
             setError(err.message);
         } finally {

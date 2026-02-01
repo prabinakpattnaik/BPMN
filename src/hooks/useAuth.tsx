@@ -98,7 +98,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             if (session?.user) {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-                    await fetchProfile(session.user.id);
+                    // Update profile in background without blocking the UI
+                    fetchProfile(session.user.id);
                 }
             } else {
                 setProfile(null);
