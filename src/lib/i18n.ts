@@ -66,7 +66,16 @@ const resources = {
             "send_reset_link": "Send Reset Link",
             "check_your_email": "Check your email",
             "reset_link_sent_msg": "We've sent a password reset link to {{email}}",
-            "back_to_login": "Back to login"
+            "back_to_login": "Back to login",
+            "sign_in_with_otp": "Sign in with OTP",
+            "sign_in_with_password": "Sign in with Password",
+            "send_otp": "Send Login Code",
+            "verifying_otp": "Verifying...",
+            "enter_otp": "Enter Verification Code",
+            "otp_sent_to": "We've sent a 6-digit code to {{email}}",
+            "verify_and_login": "Verify & Login",
+            "mfa_required": "Two-Factor Authentication Required",
+            "mfa_desc": "Please enter the code from your authenticator app."
         }
     },
     de: {
@@ -132,7 +141,16 @@ const resources = {
             "send_reset_link": "Link senden",
             "check_your_email": "Prüfen Sie Ihre E-Mails",
             "reset_link_sent_msg": "Wir haben einen Link zum Zurücksetzen des Passworts an {{email}} gesendet",
-            "back_to_login": "Zurück zum Login"
+            "back_to_login": "Zurück zum Login",
+            "sign_in_with_otp": "Mit OTP anmelden",
+            "sign_in_with_password": "Mit Passwort anmelden",
+            "send_otp": "Login-Code senden",
+            "verifying_otp": "Verifizierung...",
+            "enter_otp": "Verifizierungscode eingeben",
+            "otp_sent_to": "Wir haben einen 6-stelligen Code an {{email}} gesendet",
+            "verify_and_login": "Verifizieren & Anmelden",
+            "mfa_required": "Zwei-Faktor-Authentisierung erforderlich",
+            "mfa_desc": "Bitte geben Sie den Code aus Ihrer Authentifikator-App ein."
         }
     },
     fr: {
@@ -198,7 +216,16 @@ const resources = {
             "send_reset_link": "Envoyer le lien",
             "check_your_email": "Vérifiez vos e-mails",
             "reset_link_sent_msg": "Nous avons envoyé un lien de réinitialisation à {{email}}",
-            "back_to_login": "Retour à la connexion"
+            "back_to_login": "Retour à la connexion",
+            "sign_in_with_otp": "Se connecter avec OTP",
+            "sign_in_with_password": "Se connecter avec mot de passe",
+            "send_otp": "Envoyer le code de connexion",
+            "verifying_otp": "Vérification...",
+            "enter_otp": "Entrez le code de vérification",
+            "otp_sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}",
+            "verify_and_login": "Vérifier et se connecter",
+            "mfa_required": "Authentification à deux facteurs requise",
+            "mfa_desc": "Veuillez saisir le code de votre application d'authentification."
         }
     },
     es: {
@@ -264,7 +291,16 @@ const resources = {
             "send_reset_link": "Enviar enlace",
             "check_your_email": "Revisa tu correo",
             "reset_link_sent_msg": "Hemos enviado un enlace de restablecimiento a {{email}}",
-            "back_to_login": "Volver al inicio de sesión"
+            "back_to_login": "Volver al inicio de sesión",
+            "sign_in_with_otp": "Iniciar sesión con OTP",
+            "sign_in_with_password": "Iniciar sesión con contraseña",
+            "send_otp": "Enviar código de acceso",
+            "verifying_otp": "Verificando...",
+            "enter_otp": "Ingrese el código de verificación",
+            "otp_sent_to": "Hemos enviado un código de 6 dígitos a {{email}}",
+            "verify_and_login": "Verificar e iniciar sesión",
+            "mfa_required": "Autenticación de dos factores requerida",
+            "mfa_desc": "Ingrese el código de su aplicación de autenticación."
         }
     }
 };
