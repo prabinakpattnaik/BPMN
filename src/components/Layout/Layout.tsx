@@ -15,7 +15,7 @@ type LayoutProps = {
 export const Layout = ({ children }: LayoutProps) => {
     const { t } = useTranslation();
     const location = useLocation();
-    const { saveWorkflow, loadWorkflow, tenantId, workflowName, setWorkflowName, notification } = useStore();
+    const { saveWorkflow, loadWorkflow, tenantId, notification } = useStore();
     const { user, signOut, isAdmin } = useAuth();
 
     const isEditorPage = location.pathname === '/';
