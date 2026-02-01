@@ -1,28 +1,52 @@
 import { Canvas } from '../../components/Canvas/Canvas';
 import { useStore } from '../../lib/store';
 import { useAuth } from '../../hooks/useAuth';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Shield, Clock, Layout as LayoutIcon } from 'lucide-react';
 
 export const MyWorkflow = () => {
-    const { user, profile } = useAuth();
-    const { loadWorkflow, workflowName } = useStore();
+    const { user, profile, loading: authLoading, refreshProfile } = useAuth();
+    const { loadWorkflow, workflowName, resetWorkflow, workflowId } = useStore();
     const [loading, setLoading] = useState(true);
+    const fetchInProgress = useRef(false);
 
     useEffect(() => {
         const fetchUserWorkflow = async () => {
-            if (!user || !profile?.tenant_id) {
+            // Prevent duplicate calls if one is already running
+            if (fetchInProgress.current || authLoading) return;
+
+            if (!user) {
                 setLoading(false);
                 return;
             }
 
+            fetchInProgress.current = true;
+
             try {
+                // If we already have a workflow loaded, don't re-search for it
+                if (workflowId) {
+                    setLoading(false);
+                    return;
+                }
+
+                // Determine if we actually need a profile refresh
+                if (!profile?.tenant_id) {
+                    await refreshProfile();
+                }
+
+                // If we still don't have it, we can't fetch workflows
+                const currentTenantId = profile?.tenant_id;
+                if (!currentTenantId) {
+                    setLoading(false);
+                    return;
+                }
+
                 // Fetch the latest workflow assigned to THIS specific user in this org
                 const { data: workflows, error } = await supabase
                     .from('workflows')
                     .select('id')
-                    .eq('tenant_id', profile.tenant_id)
+                    .eq('tenant_id', currentTenantId)
                     .eq('created_by', user.id)
                     .order('updated_at', { ascending: false })
                     .limit(1);
@@ -31,18 +55,21 @@ export const MyWorkflow = () => {
 
                 if (workflows && workflows.length > 0) {
                     await loadWorkflow((workflows as any[])[0].id);
+                } else {
+                    resetWorkflow();
                 }
             } catch (err) {
                 console.error('Error loading workflow:', err);
             } finally {
                 setLoading(false);
+                fetchInProgress.current = false;
             }
         };
 
         fetchUserWorkflow();
-    }, [user, profile, loadWorkflow]);
+    }, [user?.id, profile?.tenant_id, authLoading, workflowId]); // Added workflowId to deps
 
-    if (loading) {
+    if (authLoading || (loading && user)) {
         return (
             <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 gap-4">
                 <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -80,7 +107,27 @@ export const MyWorkflow = () => {
                 </div>
             </header>
             <div className="flex-1 relative overflow-hidden">
-                <Canvas readOnly={true} />
+                {!workflowId ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50">
+                        <div className="bg-white p-12 rounded-[2.5rem] shadow-xl border border-gray-100 max-w-sm text-center transform transition-all hover:scale-[1.02]">
+                            <div className="h-20 w-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <Shield size={40} strokeWidth={1.5} />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">No Assigned Workflow</h2>
+                            <p className="text-gray-500 text-sm leading-relaxed mb-8">
+                                You don't have any business processes assigned to your profile yet. Please contact your system administrator.
+                            </p>
+                            <button
+                                onClick={() => refreshProfile()}
+                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+                            >
+                                Refresh Status
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <Canvas readOnly={true} />
+                )}
             </div>
         </div>
     );

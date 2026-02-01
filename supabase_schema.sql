@@ -47,6 +47,16 @@ as $$
   );
 $$;
 
+-- Helper to get current user's tenant_id
+create or replace function public.get_auth_tenant_id()
+returns uuid
+language sql
+security definer
+as $$
+  select tenant_id from profiles
+  where id = auth.uid();
+$$;
+
 -- RLS Policies Update
 
 -- Tenants: Admins can do anything, Users view their own

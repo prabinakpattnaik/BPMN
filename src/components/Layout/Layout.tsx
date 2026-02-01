@@ -172,8 +172,8 @@ export const Layout = ({ children }: LayoutProps) => {
                 {isEditorPage ? (
                     children
                 ) : (
-                    <div className="flex flex-col min-h-full">
-                        <div className="flex-1">
+                    <div className="flex flex-col h-full">
+                        <div className="flex-1 min-h-0">
                             {children}
                         </div>
 

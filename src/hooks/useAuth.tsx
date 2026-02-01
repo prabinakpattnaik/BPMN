@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -50,7 +50,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const isAdmin = profile?.role === 'admin';
     const isTenant = profile?.role === 'tenant';
 
+    const fetchingRef = useRef<string | null>(null);
+
     const fetchProfile = async (userId: string) => {
+        // Don't fetch if already fetching this specific user
+        if (fetchingRef.current === userId) return;
+        // Don't fetch if we already have the profile for this user
+        if (profile?.id === userId && profile.tenant_id) return;
+
+        fetchingRef.current = userId;
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -67,6 +75,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (err) {
             console.error('Unexpected error fetching profile:', err);
             setProfile(null);
+        } finally {
+            fetchingRef.current = null;
         }
     };
 

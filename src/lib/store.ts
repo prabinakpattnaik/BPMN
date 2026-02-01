@@ -159,6 +159,9 @@ export const useStore = create<WorkflowState>((set, get) => ({
     },
 
     loadWorkflow: async (id: string) => {
+        // Prevent re-loading the exact same workflow if already in memory
+        if (get().workflowId === id && get().nodes.length > 0) return;
+
         const { data, error } = await (supabase
             .from('workflows') as any)
             .select('*')

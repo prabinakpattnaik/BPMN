@@ -13,7 +13,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { PendingAssignment } from './pages/PendingAssignment';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, needsPasswordReset } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -32,7 +32,6 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   }
 
   // FORCE RESET logic
-  const { needsPasswordReset } = useAuth();
   if (needsPasswordReset && location.pathname !== '/reset-password') {
     return <Navigate to="/reset-password" replace />;
   }
