@@ -189,6 +189,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
     resetWorkflow: () => {
         set({
             workflowId: null,
+            tenantId: null,
             workflowName: 'Untitled Workflow',
             nodes: [],
             edges: [],

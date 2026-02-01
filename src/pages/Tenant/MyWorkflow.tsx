@@ -9,67 +9,71 @@ export const MyWorkflow = () => {
     const { user, profile, loading: authLoading, refreshProfile } = useAuth();
     const { loadWorkflow, workflowName, resetWorkflow, workflowId } = useStore();
     const [loading, setLoading] = useState(true);
+    const [isInitializing, setIsInitializing] = useState(true);
     const fetchInProgress = useRef(false);
+    const fetchUserWorkflow = async () => {
+        // Prevent duplicate calls if one is already running
+        if (fetchInProgress.current || authLoading) return;
 
-    useEffect(() => {
-        const fetchUserWorkflow = async () => {
-            // Prevent duplicate calls if one is already running
-            if (fetchInProgress.current || authLoading) return;
+        if (!user) {
+            setLoading(false);
+            setIsInitializing(false);
+            return;
+        }
 
-            if (!user) {
+        fetchInProgress.current = true;
+        setIsInitializing(true);
+
+        try {
+            // If we already have a workflow loaded that matches the user's current session
+            // we might still want to check if it's the right one, but for reduced API calls
+            // we skip if workflowId is already set. 
+            // However, we MUST ensure it's not a stale workflow from a previous login.
+            // (Store reset on logout handled this, but this is a safety check)
+
+            // Determine if we actually need a profile refresh
+            if (!profile?.tenant_id) {
+                await refreshProfile();
+            }
+
+            // If we still don't have it, we can't fetch workflows
+            const currentTenantId = profile?.tenant_id;
+            if (!currentTenantId) {
                 setLoading(false);
                 return;
             }
 
-            fetchInProgress.current = true;
+            // Fetch the latest workflow assigned to THIS specific user in this org
+            const { data: workflows, error } = await supabase
+                .from('workflows')
+                .select('id')
+                .eq('tenant_id', currentTenantId)
+                .eq('created_by', user.id)
+                .order('updated_at', { ascending: false })
+                .limit(1);
 
-            try {
-                // If we already have a workflow loaded, don't re-search for it
-                if (workflowId) {
-                    setLoading(false);
-                    return;
-                }
+            if (error) throw error;
 
-                // Determine if we actually need a profile refresh
-                if (!profile?.tenant_id) {
-                    await refreshProfile();
-                }
-
-                // If we still don't have it, we can't fetch workflows
-                const currentTenantId = profile?.tenant_id;
-                if (!currentTenantId) {
-                    setLoading(false);
-                    return;
-                }
-
-                // Fetch the latest workflow assigned to THIS specific user in this org
-                const { data: workflows, error } = await supabase
-                    .from('workflows')
-                    .select('id')
-                    .eq('tenant_id', currentTenantId)
-                    .eq('created_by', user.id)
-                    .order('updated_at', { ascending: false })
-                    .limit(1);
-
-                if (error) throw error;
-
-                if (workflows && workflows.length > 0) {
-                    await loadWorkflow((workflows as any[])[0].id);
-                } else {
-                    resetWorkflow();
-                }
-            } catch (err) {
-                console.error('Error loading workflow:', err);
-            } finally {
-                setLoading(false);
-                fetchInProgress.current = false;
+            if (workflows && workflows.length > 0) {
+                await loadWorkflow((workflows as any[])[0].id);
+            } else {
+                resetWorkflow();
             }
-        };
+        } catch (err) {
+            console.error('Error loading workflow:', err);
+        } finally {
+            setLoading(false);
+            setIsInitializing(false);
+            fetchInProgress.current = false;
+        }
+    };
+    useEffect(() => {
 
-        fetchUserWorkflow();
-    }, [user?.id, profile?.tenant_id, authLoading, workflowId]); // Added workflowId to deps
+        if (user?.id && profile?.tenant_id)
+            fetchUserWorkflow();
+    }, [user?.id, profile?.tenant_id, authLoading]); // workflowId removed from deps to prevent loops
 
-    if (authLoading || (loading && user)) {
+    if (loading || isInitializing || authLoading) {
         return (
             <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 gap-4">
                 <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -80,7 +84,7 @@ export const MyWorkflow = () => {
 
     return (
         <div className="flex flex-col h-full w-full bg-white overflow-hidden">
-            <header className="h-16 border-b border-gray-100 flex items-center px-8 justify-between bg-white shadow-sm z-10">
+            {workflowId ? <header className="h-16 border-b border-gray-100 flex items-center px-8 justify-between bg-white shadow-sm z-10">
                 <div className="flex items-center gap-4">
                     <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                         <LayoutIcon size={20} />
@@ -105,7 +109,7 @@ export const MyWorkflow = () => {
                         Auto-syncing
                     </span>
                 </div>
-            </header>
+            </header> : null}
             <div className="flex-1 relative overflow-hidden">
                 {!workflowId ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50">
@@ -118,7 +122,7 @@ export const MyWorkflow = () => {
                                 You don't have any business processes assigned to your profile yet. Please contact your system administrator.
                             </p>
                             <button
-                                onClick={() => refreshProfile()}
+                                onClick={() => fetchUserWorkflow()}
                                 className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
                             >
                                 Refresh Status

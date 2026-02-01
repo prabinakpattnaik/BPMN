@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, Workflow, User as UserIcon, Building2, ExternalLink, Trash2, Check } from 'lucide-react';
 import { Canvas } from '../../components/Canvas/Canvas';
 import { useStore } from '../../lib/store';
+import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 
 type FlowData = {
     id: string;
@@ -34,7 +35,8 @@ export const FlowsManagement = () => {
     const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
     const [selectedTenant, setSelectedTenant] = useState<string>('');
     const [selectedUser, setSelectedUser] = useState<string>('');
-    const { nodes, edges, setNodes, setEdges, workflowName, setWorkflowName } = useStore();
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const { nodes, edges, setNodes, setEdges, workflowName, setWorkflowName, showNotification } = useStore();
 
     const fetchFlows = async () => {
         setLoading(true);
@@ -124,7 +126,7 @@ export const FlowsManagement = () => {
 
     const handlePublishFlow = async () => {
         if (!workflowName || !selectedTenant || !selectedUser) {
-            alert('Please fill in all fields (Name, Org, and User)');
+            showNotification('Please fill in all fields (Name, Org, and User)', 'error');
             return;
         }
 
@@ -149,32 +151,33 @@ export const FlowsManagement = () => {
         }
 
         if (result.error) {
-            alert('Error saving workflow: ' + result.error.message);
+            showNotification('Error saving workflow: ' + result.error.message, 'error');
         } else {
-            alert(editingFlowId ? 'Workflow updated successfully!' : 'Workflow created successfully!');
+            showNotification(editingFlowId ? 'Workflow updated successfully!' : 'Workflow created successfully!', 'success');
             setIsModalOpen(false);
             fetchFlows();
         }
     };
 
-    const handleDeleteFlow = async (flowId: string) => {
-        if (!confirm('Are you sure you want to delete this workflow? This cannot be undone.')) return;
+    const handleDeleteFlow = async () => {
+        if (!confirmDeleteId) return;
 
         setLoading(true);
         try {
             const { error } = await supabase
                 .from('workflows')
                 .delete()
-                .eq('id', flowId);
+                .eq('id', confirmDeleteId);
 
             if (error) throw error;
 
-            alert('Workflow deleted successfully.');
+            showNotification('Workflow deleted successfully.', 'success');
             fetchFlows();
         } catch (err: any) {
-            alert('Error deleting workflow: ' + err.message);
+            showNotification('Error deleting workflow: ' + err.message, 'error');
         } finally {
             setLoading(false);
+            setConfirmDeleteId(null);
         }
     };
 
@@ -240,7 +243,7 @@ export const FlowsManagement = () => {
                                             <ExternalLink size={20} />
                                         </button>
                                         <button
-                                            onClick={() => handleDeleteFlow(flow.id)}
+                                            onClick={() => setConfirmDeleteId(flow.id)}
                                             title="Delete Workflow"
                                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-xl transition shadow-sm border border-transparent hover:border-red-100"
                                         >
@@ -329,6 +332,17 @@ export const FlowsManagement = () => {
                     </div>
                 </div>
             )}
+
+            {/* Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteFlow}
+                title="Delete Workflow"
+                message="Are you sure you want to delete this workflow? This will permanently remove the business process and all its step configurations. This action cannot be reversed."
+                confirmText="Delete Flow"
+                type="danger"
+            />
         </div>
     );
 };

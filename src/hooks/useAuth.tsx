@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { useStore } from '../lib/store';
 
 export type Profile = {
     id: string;
@@ -113,6 +114,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             } else {
                 setProfile(null);
+                useStore.getState().resetWorkflow();
             }
 
             setLoading(false);
@@ -130,6 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const signOut = async () => {
         await supabase.auth.signOut();
+        useStore.getState().resetWorkflow();
     };
 
     const signInWithGoogle = async () => {

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { UserPlus, Search, Building2, Mail, Shield, X, Check, Edit2Icon } from 'lucide-react';
+import { useStore } from '../../lib/store';
+import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 
 type UserProfile = {
     id: string;
@@ -23,8 +25,10 @@ export const UsersManagement = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
+    const [formsubmit, setFormSubmit] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { showNotification } = useStore();
 
     // Form states
     const [formData, setFormData] = useState({
@@ -38,6 +42,7 @@ export const UsersManagement = () => {
 
     // For Editing
     const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -85,7 +90,7 @@ export const UsersManagement = () => {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setFormSubmit(true);
         try {
             // Create a temporary client that doesn't persist session to avoid logging out the admin
             const tempClient = createClient(
@@ -129,22 +134,22 @@ export const UsersManagement = () => {
                 if (profileError) throw profileError;
             }
 
-            alert(`User created for ${formData.orgName}. They can now sign in!`);
+            showNotification(`User created for ${formData.orgName}. They can now sign in!`, 'success');
             setIsModalOpen(false);
             setFormData({ name: '', email: '', password: '', orgName: '' });
             fetchUsers();
             fetchTenants();
         } catch (err: any) {
-            alert('Error creating user: ' + err.message);
+            showNotification('Error creating user: ' + err.message, 'error');
         } finally {
-            setLoading(false);
+            setFormSubmit(false);
         }
     };
 
     const handleUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingUser) return;
-        setLoading(true);
+        setFormSubmit(true);
 
         try {
             // 1. Ensure Org exists and get ID
@@ -165,36 +170,37 @@ export const UsersManagement = () => {
 
             if (profileError) throw profileError;
 
-            alert('User profile updated successfully.');
+            showNotification('User profile updated successfully.', 'success');
             setEditingUser(null);
             setIsModalOpen(false);
             fetchUsers();
             fetchTenants();
         } catch (err: any) {
-            alert('Error updating user: ' + err.message);
+            showNotification('Error updating user: ' + err.message, 'error');
         } finally {
-            setLoading(false);
+            setFormSubmit(false);
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (!confirm('Are you sure you want to delete this user profile? This action is permanent.')) return;
+    const handleDeleteUser = async () => {
+        if (!confirmDeleteId) return;
 
         setLoading(true);
         try {
             const { error } = await supabase
                 .from('profiles')
                 .delete()
-                .eq('id', userId);
+                .eq('id', confirmDeleteId);
 
             if (error) throw error;
 
-            alert('User profile deleted successfully.');
+            showNotification('User profile deleted successfully.', 'success');
             fetchUsers();
         } catch (err: any) {
-            alert('Error deleting user: ' + err.message);
+            showNotification('Error deleting user: ' + err.message, 'error');
         } finally {
             setLoading(false);
+            setConfirmDeleteId(null);
         }
     };
 
@@ -288,7 +294,7 @@ export const UsersManagement = () => {
                                                 <Edit2Icon size={20} />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteUser(user.id)}
+                                                onClick={() => setConfirmDeleteId(user.id)}
                                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                                                 title="Delete User Profile"
                                             >
@@ -443,15 +449,37 @@ export const UsersManagement = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-100"
+                                    // Disable if the form is currently submitting OR if validation fails
+                                    disabled={formsubmit}
+                                    className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center"
                                 >
-                                    {editingUser ? 'Update User' : 'Create User'}
+                                    {formsubmit ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        editingUser ? 'Update User' : 'Create User'
+                                    )}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+            {/* Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteUser}
+                title="Delete User Account"
+                message="Are you sure you want to delete this user? This will remove their access and all associated profile data permanently. This action cannot be undone."
+                confirmText="Delete User"
+                type="danger"
+            />
         </div>
     );
 };

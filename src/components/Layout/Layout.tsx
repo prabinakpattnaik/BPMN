@@ -19,6 +19,7 @@ export const Layout = ({ children }: LayoutProps) => {
     const { user, signOut, isAdmin } = useAuth();
 
     const isEditorPage = location.pathname === '/';
+    const isAppPage = isEditorPage || location.pathname === '/my-workflow';
 
     // Sync Tenant and Load Workflow
     useEffect(() => {
@@ -51,26 +52,6 @@ export const Layout = ({ children }: LayoutProps) => {
 
                 if (existingWorkflows && existingWorkflows.length > 0) {
                     await loadWorkflow(existingWorkflows[0].id);
-                } else {
-                    // No workflow exists, just ensure store has default name
-                    const { data: newWorkflow } = await supabase
-                        .from('workflows')
-                        .insert({
-                            name: 'My First Workflow',
-                            tenant_id: tenantIdFromProfile,
-                            nodes: [],
-                            edges: [],
-                            created_by: user.id
-                        } as any)
-                        .select()
-                        .single();
-
-                    if (newWorkflow) {
-                        useStore.setState({
-                            workflowId: (newWorkflow as any).id,
-                            workflowName: 'My First Workflow'
-                        });
-                    }
                 }
             }
         };
@@ -89,19 +70,6 @@ export const Layout = ({ children }: LayoutProps) => {
 
                 <div className="flex flex-col">
                     <span className="text-lg text-blue-600 font-bold uppercase tracking-wider">{t('app_name')}</span>
-                    {/* {isEditorPage ? (
-                        <input
-                            type="text"
-                            value={workflowName}
-                            onChange={(e) => setWorkflowName(e.target.value)}
-                            className="text-lg font-bold text-gray-800 bg-transparent border-none focus:ring-0 p-0 hover:bg-gray-50 rounded"
-                            placeholder={t('untitled_workflow')}
-                        />
-                    ) : (
-                        <span className="text-lg font-bold text-gray-800">
-                            {location.pathname === '/admin/users' ? 'Users Management' : 'Flows Management'}
-                        </span>
-                    )} */}
                 </div>
 
                 {isAdmin && (
@@ -168,12 +136,12 @@ export const Layout = ({ children }: LayoutProps) => {
                 </div>
             </header>
 
-            <main className={`flex-1 relative ${isEditorPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-                {isEditorPage ? (
+            <main className={`flex-1 relative ${isAppPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                {isAppPage ? (
                     children
                 ) : (
-                    <div className="flex flex-col h-full">
-                        <div className="flex-1 min-h-0">
+                    <div className="flex flex-col min-h-full">
+                        <div className="flex-1">
                             {children}
                         </div>
 

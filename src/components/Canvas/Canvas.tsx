@@ -4,15 +4,30 @@ import ReactFlow, {
     Background,
     Controls,
     ReactFlowProvider,
+    useReactFlow,
     type Node,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useStore } from '../../lib/store';
+import { StartNode, TaskNode, EndNode } from './CustomNodes';
 import { Sidebar } from '../Sidebar/Sidebar';
 import { PropertiesPanel } from '../PropertiesPanel/PropertiesPanel';
 
+const nodeTypes = {
+    input: StartNode,
+    default: TaskNode,
+    output: EndNode,
+};
+
+const defaultEdgeOptions = {
+    type: 'smoothstep',
+    animated: true,
+    style: { strokeWidth: 2, stroke: '#3b82f6' },
+};
+const initialViewport = { x: 0, y: 0, zoom: 0.75 };
 const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const { screenToFlowPosition } = useReactFlow();
     const {
         nodes,
         edges,
@@ -42,14 +57,10 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
 
             if (!reactFlowWrapper.current) return;
 
-            const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-            const position = {
-                // Project helps translate screen px to flow position, but we need the instance. 
-                // For simplicity in this step, we calculate relative to bounds.
-                // Ideally use reactFlowInstance.project({ x: event.clientX - reactFlowBounds.left, y: event.clientY - reactFlowBounds.top });
-                x: event.clientX - reactFlowBounds.left,
-                y: event.clientY - reactFlowBounds.top,
-            };
+            const position = screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            });
 
             const newNode: Node = {
                 id: crypto.randomUUID(),
@@ -60,7 +71,7 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
 
             setNodes(nodes.concat(newNode));
         },
-        [nodes, setNodes]
+        [nodes, setNodes, screenToFlowPosition]
     );
 
     const onNodeClick = useCallback((_event: MouseEvent, node: Node) => {
@@ -78,6 +89,8 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}
+                    nodeTypes={nodeTypes}
+                    defaultEdgeOptions={defaultEdgeOptions}
                     onNodesChange={readOnly ? undefined : onNodesChange}
                     onEdgesChange={readOnly ? undefined : onEdgesChange}
                     onConnect={readOnly ? undefined : onConnect}
@@ -91,7 +104,9 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
                     nodesDraggable={!readOnly}
                     nodesConnectable={!readOnly}
                     elementsSelectable={!readOnly}
-                    fitView
+                    snapToGrid
+                    snapGrid={[20, 20]}
+                    defaultViewport={initialViewport}
                 >
                     <Background color="#ccc" gap={20} />
                     <Controls />
