@@ -88,8 +88,8 @@ export const Layout = ({ children }: LayoutProps) => {
                 </div>
 
                 <div className="flex flex-col">
-                    <span className="text-xs text-blue-600 font-bold uppercase tracking-wider">{t('app_name')}</span>
-                    {isEditorPage ? (
+                    <span className="text-lg text-blue-600 font-bold uppercase tracking-wider">{t('app_name')}</span>
+                    {/* {isEditorPage ? (
                         <input
                             type="text"
                             value={workflowName}
@@ -101,7 +101,7 @@ export const Layout = ({ children }: LayoutProps) => {
                         <span className="text-lg font-bold text-gray-800">
                             {location.pathname === '/admin/users' ? 'Users Management' : 'Flows Management'}
                         </span>
-                    )}
+                    )} */}
                 </div>
 
                 {isAdmin && (
@@ -168,10 +168,34 @@ export const Layout = ({ children }: LayoutProps) => {
                 </div>
             </header>
 
-            <main className={`flex-1 flex relative ${isEditorPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-                {children}
+            <main className={`flex-1 relative ${isEditorPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                {isEditorPage ? (
+                    children
+                ) : (
+                    <div className="flex flex-col min-h-full">
+                        <div className="flex-1">
+                            {children}
+                        </div>
 
-                {/* Notification Toast */}
+                        {/* Footer Section - Premium & Clean */}
+                        <footer className="w-full bg-white border-t border-gray-100 py-6 px-10 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-4 mt-auto">
+                            <div className="flex items-center gap-6">
+                                <span className="font-semibold text-gray-400">© 2026 {t('app_name')}</span>
+                                <div className="flex items-center gap-4 border-l border-gray-200 pl-4">
+                                    <a href="#" className="hover:text-blue-600 transition">Support</a>
+                                    <a href="#" className="hover:text-blue-600 transition">Privacy</a>
+                                    <a href="#" className="hover:text-blue-600 transition">Terms</a>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                                <span className="font-medium tracking-tight">System Operational</span>
+                            </div>
+                        </footer>
+                    </div>
+                )}
+
+                {/* Notification Toast - Shared across all pages */}
                 <AnimatePresence>
                     {notification && (
                         <motion.div

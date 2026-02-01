@@ -180,14 +180,14 @@ export const FlowsManagement = () => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Flows Management</h1>
                     <p className="text-gray-500 mt-1">Design and assign business processes to specific users and organizations.</p>
                 </div>
                 <button
                     onClick={handleOpenCreateFlow}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-semibold"
+                    className="flex custm-btm items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-semibold"
                 >
                     <Plus size={20} />
                     Create New Flow

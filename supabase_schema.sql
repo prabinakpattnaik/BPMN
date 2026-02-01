@@ -17,7 +17,7 @@ create table if not exists profiles (
   username text,
   full_name text,
   tenant_id uuid references tenants on delete cascade,
-  role text default 'member'
+  role text default 'tenant'
 );
 
 -- Workflows Table
@@ -181,7 +181,7 @@ begin
     new.id, 
     coalesce(new.raw_user_meta_data->>'full_name', 'New User'), 
     new.email,
-    coalesce(new.raw_user_meta_data->>'role', 'member')
+    coalesce(new.raw_user_meta_data->>'role', 'tenant')
   );
   return new;
 end;

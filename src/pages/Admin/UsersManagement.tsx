@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Search, Building2, Mail, Shield, X, Check } from 'lucide-react';
+import { UserPlus, Search, Building2, Mail, Shield, X, Check, Edit2Icon } from 'lucide-react';
 
 type UserProfile = {
     id: string;
@@ -36,6 +36,9 @@ export const UsersManagement = () => {
     const [orgSearch, setOrgSearch] = useState('');
     const [showOrgDropdown, setShowOrgDropdown] = useState(false);
 
+    // For Editing
+    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+
     const fetchUsers = async () => {
         setLoading(true);
         const { data, error } = await supabase
@@ -43,6 +46,7 @@ export const UsersManagement = () => {
             .select(`
                 *,
                 tenants (
+                    id,
                     name
                 )
             `)
@@ -73,7 +77,7 @@ export const UsersManagement = () => {
     );
 
     const groupedUsers = filteredUsers.reduce((acc, user) => {
-        const orgName = user.tenants?.name || 'No Organization';
+        const orgName = user.tenants?.name || 'Unknown Org';
         if (!acc[orgName]) acc[orgName] = [];
         acc[orgName].push(user);
         return acc;
@@ -137,6 +141,42 @@ export const UsersManagement = () => {
         }
     };
 
+    const handleUpdateUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+        setLoading(true);
+
+        try {
+            // 1. Ensure Org exists and get ID
+            const { data: tenantId, error: tenantError } = await (supabase.rpc as any)('admin_create_org_link', {
+                target_org_name: formData.orgName
+            });
+
+            if (tenantError) throw tenantError;
+
+            // 2. Update Profile
+            const { error: profileError } = await (supabase
+                .from('profiles') as any)
+                .update({
+                    full_name: formData.name,
+                    tenant_id: tenantId
+                })
+                .eq('id', editingUser.id);
+
+            if (profileError) throw profileError;
+
+            alert('User profile updated successfully.');
+            setEditingUser(null);
+            setIsModalOpen(false);
+            fetchUsers();
+            fetchTenants();
+        } catch (err: any) {
+            alert('Error updating user: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDeleteUser = async (userId: string) => {
         if (!confirm('Are you sure you want to delete this user profile? This action is permanent.')) return;
 
@@ -164,26 +204,13 @@ export const UsersManagement = () => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto w-full">
-            <div className="flex justify-between items-center mb-8">
+            <div className="mb-4 flex items-center gap-4 justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
                     <p className="text-gray-500 mt-1">Manage cross-organization users and administrator roles.</p>
                 </div>
-                <button
-                    onClick={() => {
-                        setIsModalOpen(true);
-                        setOrgSearch('');
-                    }}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-semibold"
-                >
-                    <UserPlus size={20} />
-                    Add User
-                </button>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto overflow-y-visible">
-                <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex items-center gap-4">
-                    <div className="flex-1 relative">
+                <div className="flex items-center gap-4">
+                    <div className='relative'>
                         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
@@ -193,7 +220,22 @@ export const UsersManagement = () => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <button
+                        onClick={() => {
+                            setEditingUser(null);
+                            setFormData({ name: '', email: '', password: '', orgName: '' });
+                            setIsModalOpen(true);
+                            setOrgSearch('');
+                        }}
+                        className="flex custm-btm items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-semibold"
+                    >
+                        <UserPlus size={20} />
+                        Add User
+                    </button>
                 </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm overflow-x-auto overflow-y-visible">
+
 
                 <div className="divide-y divide-gray-100">
                     {Object.entries(groupedUsers).map(([orgName, orgUsers]) => (
@@ -210,7 +252,7 @@ export const UsersManagement = () => {
                                     <div key={user.id} className="px-6 py-5 flex items-center justify-between hover:bg-blue-50/30 transition group">
                                         <div className="flex items-center gap-4">
                                             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-100">
-                                                {user.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                                                {user.full_name?.substring(0, 2).toUpperCase() || <Shield size={20} />}
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition">{user.full_name || 'Unnamed User'}</h3>
@@ -228,6 +270,23 @@ export const UsersManagement = () => {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingUser(user);
+                                                    setFormData({
+                                                        name: user.full_name || '',
+                                                        email: user.username || '',
+                                                        password: '', // Don't show password on edit
+                                                        orgName: user.tenants?.name || ''
+                                                    });
+                                                    setOrgSearch(user.tenants?.name || '');
+                                                    setIsModalOpen(true);
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                title="Edit User"
+                                            >
+                                                <Edit2Icon size={20} />
+                                            </button>
                                             <button
                                                 onClick={() => handleDeleteUser(user.id)}
                                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -253,101 +312,128 @@ export const UsersManagement = () => {
                 </div>
             </div>
 
-            {/* Add User Modal */}
+            {/* Modal for Add/Edit User */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform transition-all">
-                        <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden transform transition-all flex flex-col">
+                        {/* Fixed Header */}
+                        <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0">
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900">Create New Account</h2>
-                                <p className="text-sm text-gray-500 mt-1">Set up a new user and assign them to an org.</p>
+                                <h2 className="text-2xl font-bold text-gray-900">{editingUser ? 'Update Profile' : 'Create New Account'}</h2>
+                                <p className="text-sm text-gray-500 mt-1">{editingUser ? 'Modify user details and organization.' : 'Set up a new user and assign them to an org.'}</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 hover:bg-white p-2 rounded-full transition shadow-sm">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="text-gray-400 hover:text-gray-600 hover:bg-white p-2 rounded-full transition shadow-sm"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleAddUser} className="p-8 space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700 ml-1">Full Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
-                                    placeholder="John Doe"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
-                                <input
-                                    type="email"
-                                    required
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
-                                    placeholder="john@example.com"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700 ml-1">Initial Password</label>
-                                <input
-                                    type="password"
-                                    required
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
-                                    placeholder="••••••••"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-1.5 relative">
-                                <label className="text-sm font-bold text-gray-700 ml-1">Organization</label>
-                                <div className="relative">
+
+                        {/* Scrollable Form Content */}
+                        <form onSubmit={editingUser ? handleUpdateUser : handleAddUser} className="flex flex-col flex-1 overflow-hidden">
+                            <div className="p-8 space-y-5 overflow-y-auto flex-1">
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700 ml-1">Full Name</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
-                                        placeholder="Start typing to search or create..."
-                                        value={orgSearch}
-                                        onChange={(e) => {
-                                            setOrgSearch(e.target.value);
-                                            setFormData({ ...formData, orgName: e.target.value });
-                                            setShowOrgDropdown(true);
-                                        }}
-                                        onFocus={() => setShowOrgDropdown(true)}
+                                        disabled={editingUser ? true : false}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                                        placeholder="John Doe"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     />
-                                    {showOrgDropdown && (orgSearch || filteredTenants.length > 0) && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-48 overflow-y-auto">
-                                            {filteredTenants.map(t => (
-                                                <button
-                                                    key={t.id}
-                                                    type="button"
-                                                    className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition flex items-center justify-between group"
-                                                    onClick={() => {
-                                                        setOrgSearch(t.name);
-                                                        setFormData({ ...formData, orgName: t.name });
-                                                        setShowOrgDropdown(false);
-                                                    }}
-                                                >
-                                                    <span className="font-medium text-gray-700">{t.name}</span>
-                                                    <Check size={14} className="text-blue-500 opacity-0 group-hover:opacity-100" />
-                                                </button>
-                                            ))}
-                                            {orgSearch && !tenants.find(t => t.name.toLowerCase() === orgSearch.toLowerCase()) && (
-                                                <button
-                                                    type="button"
-                                                    className="w-full text-left px-4 py-2 text-sm hover:bg-green-50 transition border-t border-gray-50 flex items-center gap-2 group"
-                                                    onClick={() => setShowOrgDropdown(false)}
-                                                >
-                                                    <span className="text-green-600 font-bold">New:</span>
-                                                    <span className="font-medium text-gray-700 italic">"{orgSearch}"</span>
-                                                </button>
-                                            )}
+                                </div>
+                                {!editingUser && (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
+                                            <input
+                                                type="email"
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+                                                placeholder="john@example.com"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            />
                                         </div>
-                                    )}
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700 ml-1">Initial Password</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+                                                placeholder="••••••••"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                <div className="space-y-1.5 relative">
+                                    <label className="text-sm font-bold text-gray-700 ml-1">Organization</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+                                            placeholder="Start typing to search or create..."
+                                            value={orgSearch}
+                                            onChange={(e) => {
+                                                setOrgSearch(e.target.value);
+                                                setFormData({ ...formData, orgName: e.target.value });
+                                                if (e.target.value.length > 2) {
+                                                    setShowOrgDropdown(true);
+                                                } else {
+                                                    setShowOrgDropdown(false);
+                                                }
+                                            }}
+                                            onFocus={() => setShowOrgDropdown(true)}
+                                            onBlur={() => {
+                                                // Small timeout to allow clicking the dropdown items
+                                                setTimeout(() => setShowOrgDropdown(false), 200);
+                                            }}
+                                        />
+                                        {showOrgDropdown && (orgSearch || filteredTenants.length > 0) && (
+                                            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-48 overflow-y-auto">
+                                                {filteredTenants.map(t => (
+                                                    <button
+                                                        key={t.id}
+                                                        type="button"
+                                                        className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition flex items-center justify-between group"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setOrgSearch(t.name);
+                                                            setFormData({ ...formData, orgName: t.name });
+                                                            setShowOrgDropdown(false);
+                                                        }}
+                                                    >
+                                                        <span className="font-medium text-gray-700">{t.name}</span>
+                                                        <Check size={14} className="text-blue-500 opacity-0 group-hover:opacity-100" />
+                                                    </button>
+                                                ))}
+                                                {orgSearch && !tenants.find(t => t.name.toLowerCase() === orgSearch.toLowerCase()) && (
+                                                    <button
+                                                        type="button"
+                                                        className="w-full text-left px-4 py-2 text-sm hover:bg-green-50 transition border-t border-gray-50 flex items-center gap-2 group"
+                                                        onClick={() => {
+                                                            setShowOrgDropdown(false);
+                                                        }}
+                                                    >
+                                                        <span className="text-green-600 font-bold">New:</span>
+                                                        <span className="font-medium text-gray-700 italic">"{orgSearch}"</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="pt-6 flex gap-4">
+
+                            {/* Fixed Footer Buttons */}
+                            <div className="p-8 border-t border-gray-100 flex gap-4 bg-gray-50/30 flex-shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
@@ -359,7 +445,7 @@ export const UsersManagement = () => {
                                     type="submit"
                                     className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-100"
                                 >
-                                    Create User
+                                    {editingUser ? 'Update User' : 'Create User'}
                                 </button>
                             </div>
                         </form>

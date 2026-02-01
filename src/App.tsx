@@ -10,6 +10,8 @@ import { MyWorkflow } from './pages/Tenant/MyWorkflow';
 import { ResetPassword } from './pages/ResetPassword';
 import { ForgotPassword } from './pages/ForgotPassword';
 
+import { PendingAssignment } from './pages/PendingAssignment';
+
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
@@ -35,6 +37,12 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/reset-password" replace />;
   }
 
+  // PENDING ASSIGNMENT logic
+  // If user is logged in, not an admin, and has no tenant_id, force them to pending page
+  if (profile && profile.role !== 'admin' && !profile.tenant_id && location.pathname !== '/pending-assignment') {
+    return <Navigate to="/pending-assignment" replace />;
+  }
+
   if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
     // Redirect if role not allowed
     return <Navigate to="/" replace />;
@@ -54,6 +62,10 @@ const HomeRedirect = () => {
   }
 
   if (profile?.role === 'tenant') {
+    // If tenant role but no ID (new social signups usually)
+    if (!profile.tenant_id) {
+      return <Navigate to="/pending-assignment" replace />;
+    }
     return <Navigate to="/my-workflow" replace />;
   }
 
@@ -69,6 +81,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/pending-assignment" element={<PendingAssignment />} />
           <Route
             path="/reset-password"
             element={
