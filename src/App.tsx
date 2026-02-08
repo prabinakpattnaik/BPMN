@@ -60,7 +60,7 @@ const HomeRedirect = () => {
     return <Navigate to="/admin/flows" replace />;
   }
 
-  if (profile?.role === 'tenant') {
+  if (['tenant', 'Owner', 'Analyst', 'Reviewer', 'Viewer'].includes(profile?.role || '')) {
     // If tenant role but no ID (new social signups usually)
     if (!profile.tenant_id) {
       return <Navigate to="/pending-assignment" replace />;
@@ -125,7 +125,7 @@ function App() {
           <Route
             path="/my-workflow"
             element={
-              <ProtectedRoute allowedRoles={['tenant']}>
+              <ProtectedRoute allowedRoles={['tenant', 'Owner', 'Analyst', 'Reviewer', 'Viewer']}>
                 <Layout>
                   <MyWorkflow />
                 </Layout>

@@ -8,7 +8,7 @@ export type Profile = {
     full_name: string | null;
     username: string | null;
     tenant_id: string | null;
-    role: 'admin' | 'tenant' | 'owner' | 'member';
+    role: 'admin' | 'tenant' | 'Owner' | 'Analyst' | 'Reviewer' | 'Viewer';
 };
 
 type AuthContextType = {
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
 
     const isAdmin = profile?.role === 'admin';
-    const isTenant = profile?.role === 'tenant';
+    const isTenant = ['tenant', 'Owner', 'Analyst', 'Reviewer', 'Viewer'].includes(profile?.role || '');
 
     const fetchingRef = useRef<string | null>(null);
 

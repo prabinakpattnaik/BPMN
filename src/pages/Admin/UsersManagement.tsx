@@ -35,7 +35,8 @@ export const UsersManagement = () => {
         name: '',
         email: '',
         password: '',
-        orgName: ''
+        orgName: '',
+        role: 'Owner'
     });
     const [orgSearch, setOrgSearch] = useState('');
     const [showOrgDropdown, setShowOrgDropdown] = useState(false);
@@ -113,7 +114,7 @@ export const UsersManagement = () => {
                 options: {
                     data: {
                         full_name: formData.name,
-                        role: 'tenant',
+                        role: formData.role,
                         needs_password_reset: true
                     }
                 }
@@ -127,16 +128,16 @@ export const UsersManagement = () => {
                     .from('profiles') as any)
                     .update({
                         tenant_id: tenantId,
-                        role: 'tenant'
+                        role: formData.role
                     })
                     .eq('id', authData.user.id);
 
                 if (profileError) throw profileError;
             }
 
-            showNotification(`User created for ${formData.orgName}. They can now sign in!`, 'success');
+            showNotification(`User created for ${formData.orgName} as ${formData.role}. They can now sign in!`, 'success');
             setIsModalOpen(false);
-            setFormData({ name: '', email: '', password: '', orgName: '' });
+            setFormData({ name: '', email: '', password: '', orgName: '', role: 'Owner' });
             fetchUsers();
             fetchTenants();
         } catch (err: any) {
@@ -164,7 +165,8 @@ export const UsersManagement = () => {
                 .from('profiles') as any)
                 .update({
                     full_name: formData.name,
-                    tenant_id: tenantId
+                    tenant_id: tenantId,
+                    role: formData.role
                 })
                 .eq('id', editingUser.id);
 
@@ -229,7 +231,7 @@ export const UsersManagement = () => {
                     <button
                         onClick={() => {
                             setEditingUser(null);
-                            setFormData({ name: '', email: '', password: '', orgName: '' });
+                            setFormData({ name: '', email: '', password: '', orgName: '', role: 'Owner' });
                             setIsModalOpen(true);
                             setOrgSearch('');
                         }}
@@ -283,7 +285,8 @@ export const UsersManagement = () => {
                                                         name: user.full_name || '',
                                                         email: user.username || '',
                                                         password: '', // Don't show password on edit
-                                                        orgName: user.tenants?.name || ''
+                                                        orgName: user.tenants?.name || '',
+                                                        role: user.role || 'Viewer'
                                                     });
                                                     setOrgSearch(user.tenants?.name || '');
                                                     setIsModalOpen(true);
@@ -387,19 +390,25 @@ export const UsersManagement = () => {
                                             placeholder="Start typing to search or create..."
                                             value={orgSearch}
                                             onChange={(e) => {
-                                                setOrgSearch(e.target.value);
-                                                setFormData({ ...formData, orgName: e.target.value });
-                                                if (e.target.value.length > 2) {
+                                                const newVal = e.target.value;
+                                                setOrgSearch(newVal);
+                                                setFormData({ ...formData, orgName: newVal });
+                                                if (newVal.length > 0) {
                                                     setShowOrgDropdown(true);
                                                 } else {
                                                     setShowOrgDropdown(false);
                                                 }
+                                                // Check if new org to reset role to Owner
+                                                const exists = tenants.some(t => t.name.toLowerCase() === newVal.toLowerCase());
+                                                if (!exists) {
+                                                    setFormData(prev => ({ ...prev, role: 'Owner', orgName: newVal }));
+                                                }
                                             }}
                                             onFocus={() => setShowOrgDropdown(true)}
-                                            onBlur={() => {
-                                                // Small timeout to allow clicking the dropdown items
-                                                setTimeout(() => setShowOrgDropdown(false), 200);
-                                            }}
+                                        // onBlur={() => {
+                                        //     // Small timeout to allow clicking the dropdown items
+                                        //     setTimeout(() => setShowOrgDropdown(false), 200);
+                                        // }}
                                         />
                                         {showOrgDropdown && (orgSearch || filteredTenants.length > 0) && (
                                             <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-48 overflow-y-auto">
@@ -426,6 +435,7 @@ export const UsersManagement = () => {
                                                         className="w-full text-left px-4 py-2 text-sm hover:bg-green-50 transition border-t border-gray-50 flex items-center gap-2 group"
                                                         onClick={() => {
                                                             setShowOrgDropdown(false);
+                                                            setFormData(prev => ({ ...prev, role: 'Owner' }));
                                                         }}
                                                     >
                                                         <span className="text-green-600 font-bold">New:</span>
@@ -435,6 +445,33 @@ export const UsersManagement = () => {
                                             </div>
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Role Selection */}
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700 ml-1">Role</label>
+                                    {tenants.some(t => t.name.toLowerCase() === orgSearch.toLowerCase()) ? (
+                                        <div className="relative">
+                                            <select
+                                                value={formData.role}
+                                                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none bg-white cursor-pointer"
+                                            >
+                                                <option value="Owner">Owner</option>
+                                                <option value="Analyst">Analyst</option>
+                                                <option value="Reviewer">Reviewer</option>
+                                                <option value="Viewer">Viewer</option>
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                                                <Shield size={16} />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-full px-4 py-3 border border-gray-100 bg-gray-50 text-gray-500 rounded-xl flex items-center justify-between cursor-not-allowed">
+                                            <span>Owner</span>
+                                            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-600">Default for New Org</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
