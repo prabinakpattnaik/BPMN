@@ -5,7 +5,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 const resources = {
     en: {
         translation: {
-            "app_name": "BPM Tool V2",
+            "app_name": "BPM Tool",
             "login_welcome": "Welcome back",
             "signup_title": "Create your account",
             "email": "Email address",
@@ -80,7 +80,7 @@ const resources = {
     },
     de: {
         translation: {
-            "app_name": "BPM Tool V2",
+            "app_name": "BPM Tool",
             "login_welcome": "Willkommen zurück",
             "signup_title": "Konto erstellen",
             "email": "E-Mail-Adresse",
@@ -155,7 +155,7 @@ const resources = {
     },
     fr: {
         translation: {
-            "app_name": "BPM Tool V2",
+            "app_name": "BPM Tool",
             "login_welcome": "Bon retour",
             "signup_title": "Créez votre compte",
             "email": "Adresse e-mail",
@@ -230,7 +230,7 @@ const resources = {
     },
     es: {
         translation: {
-            "app_name": "BPM Tool V2",
+            "app_name": "BPM Tool",
             "login_welcome": "Bienvenido de nuevo",
             "signup_title": "Crea tu cuenta",
             "email": "Correo electrónico",

@@ -9,8 +9,9 @@ import { FlowsManagement } from './pages/Admin/FlowsManagement';
 import { MyWorkflow } from './pages/Tenant/MyWorkflow';
 import { ResetPassword } from './pages/ResetPassword';
 import { ForgotPassword } from './pages/ForgotPassword';
-
 import { PendingAssignment } from './pages/PendingAssignment';
+import { OwnerDashboard } from './pages/Tenant/OwnerDashboard';
+import { OwnerUsersManagement } from './pages/Tenant/OwnerUsersManagement';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { user, profile, loading, needsPasswordReset } = useAuth();
@@ -65,6 +66,12 @@ const HomeRedirect = () => {
     if (!profile.tenant_id) {
       return <Navigate to="/pending-assignment" replace />;
     }
+
+    // Redirect Owner to Dashboard, others to Workflow
+    if (profile.role === 'Owner') {
+      return <Navigate to="/dashboard" replace />;
+    }
+
     return <Navigate to="/my-workflow" replace />;
   }
 
@@ -122,6 +129,26 @@ function App() {
           />
 
           {/* Tenant Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['Owner']}>
+                <Layout>
+                  <OwnerDashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/owner/users"
+            element={
+              <ProtectedRoute allowedRoles={['Owner']}>
+                <Layout>
+                  <OwnerUsersManagement />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/my-workflow"
             element={

@@ -17,6 +17,7 @@ type AuthContextType = {
     session: Session | null;
     loading: boolean;
     isAdmin: boolean;
+    isOwner: boolean;
     isTenant: boolean;
     needsPasswordReset: boolean;
     signIn: () => Promise<void>;
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
     session: null,
     loading: true,
     isAdmin: false,
+    isOwner: false,
     isTenant: false,
     needsPasswordReset: false,
     signIn: async () => { },
@@ -49,6 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
 
     const isAdmin = profile?.role === 'admin';
+    const isOwner = profile?.role === 'Owner';
     const isTenant = ['tenant', 'Owner', 'Analyst', 'Reviewer', 'Viewer'].includes(profile?.role || '');
 
     const fetchingRef = useRef<string | null>(null);
@@ -180,6 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             session,
             loading,
             isAdmin,
+            isOwner,
             isTenant,
             needsPasswordReset,
             signIn,

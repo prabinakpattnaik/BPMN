@@ -16,7 +16,7 @@ export const Layout = ({ children }: LayoutProps) => {
     const { t } = useTranslation();
     const location = useLocation();
     const { saveWorkflow, loadWorkflow, tenantId, notification } = useStore();
-    const { user, signOut, isAdmin } = useAuth();
+    const { user, signOut, isAdmin, isOwner } = useAuth();
 
     const isEditorPage = location.pathname === '/';
     const isAppPage = isEditorPage || location.pathname === '/my-workflow';
@@ -71,6 +71,40 @@ export const Layout = ({ children }: LayoutProps) => {
                 <div className="flex flex-col">
                     <span className="text-lg text-blue-600 font-bold uppercase tracking-wider">{t('app_name')}</span>
                 </div>
+                {isOwner && (
+                    <nav className="ml-8 flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                        <Link
+                            to="/dashboard"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === '/dashboard'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            <Layers size={16} />
+                            Dashboard
+                        </Link>
+                        <Link
+                            to="/owner/users"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === '/owner/users'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            <Users size={16} />
+                            Users
+                        </Link>
+                        <Link
+                            to="/my-workflow"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${location.pathname === '/my-workflow'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            <WorkflowIcon size={16} />
+                            Workflows
+                        </Link>
+                    </nav>
+                )}
 
                 {isAdmin && (
                     <nav className="ml-8 flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
