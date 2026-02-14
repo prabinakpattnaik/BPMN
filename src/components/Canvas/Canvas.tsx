@@ -25,7 +25,7 @@ const defaultEdgeOptions = {
     style: { strokeWidth: 2, stroke: '#3b82f6' },
 };
 const initialViewport = { x: 0, y: 0, zoom: 0.75 };
-const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
+const Flow = ({ readOnly = false, canAddComments = false }: { readOnly?: boolean, canAddComments?: boolean }) => {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const { screenToFlowPosition } = useReactFlow();
     const {
@@ -99,11 +99,11 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
                     }}
                     onDrop={readOnly ? undefined : onDrop}
                     onDragOver={readOnly ? undefined : onDragOver}
-                    onNodeClick={readOnly ? undefined : onNodeClick}
-                    onPaneClick={readOnly ? undefined : onPaneClick}
+                    onNodeClick={onNodeClick}
+                    onPaneClick={onPaneClick}
                     nodesDraggable={!readOnly}
                     nodesConnectable={!readOnly}
-                    elementsSelectable={!readOnly}
+                    elementsSelectable={true}
                     snapToGrid
                     snapGrid={[20, 20]}
                     defaultViewport={initialViewport}
@@ -111,16 +111,16 @@ const Flow = ({ readOnly = false }: { readOnly?: boolean }) => {
                     <Background color="#ccc" gap={20} />
                     <Controls />
                 </ReactFlow>
-                {!readOnly && <PropertiesPanel />}
+                <PropertiesPanel readOnly={readOnly} canAddComments={canAddComments} />
             </div>
         </div>
     );
 };
 
-export const Canvas = ({ readOnly = false }: { readOnly?: boolean }) => {
+export const Canvas = ({ readOnly = false, canAddComments = false }: { readOnly?: boolean, canAddComments?: boolean }) => {
     return (
         <ReactFlowProvider>
-            <Flow readOnly={readOnly} />
+            <Flow readOnly={readOnly} canAddComments={canAddComments} />
         </ReactFlowProvider>
     );
 };

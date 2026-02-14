@@ -3,16 +3,14 @@ import { useStore } from '../../lib/store';
 import { useAuth } from '../../hooks/useAuth';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Shield, Clock, Layout as LayoutIcon, Send, CheckCircle, MessageSquare } from 'lucide-react';
-import { CommentsPanel } from '../../components/CommentsPanel/CommentsPanel';
+import { Shield, Clock, Layout as LayoutIcon, Send, CheckCircle } from 'lucide-react';
 
 export const MyWorkflow = () => {
     const { user, profile, loading: authLoading, refreshProfile } = useAuth();
-    const { loadWorkflow, workflowName, resetWorkflow, workflowId, showNotification, selectedNode } = useStore();
+    const { loadWorkflow, saveWorkflow, workflowName, resetWorkflow, workflowId, showNotification } = useStore();
     const [loading, setLoading] = useState(true);
     const [isInitializing, setIsInitializing] = useState(true);
     const [workflowStatus, setWorkflowStatus] = useState<'draft' | 'pending_review' | 'approved' | 'published'>('draft');
-    const [showComments, setShowComments] = useState(false);
     const fetchInProgress = useRef(false);
 
     // Role Checks
@@ -36,14 +34,14 @@ export const MyWorkflow = () => {
     const canPublish = isOwner && workflowStatus === 'approved';
 
     // View Comments: Analyst, Reviewer, Owner can view always (if workflow exists). Viewer never.
-    const canViewComments = !isViewer;
+    // const canViewComments = !isViewer;
 
     // Add Comments: Reviewer (when pending), Analyst (always? or when pending/draft?). 
     // Request says: "Analyst... submit... then only reviewer can see... show conversation". 
     // "give the right panel to add just only comment for reviewer". 
     // "Owner... can see the comments but not add". 
     // So: Reviewer can Add. Owner CANNOT. Analyst CAN (to reply).
-    const canAddComments = (isReviewer && workflowStatus === 'pending_review') || (isAnalyst && ['draft', 'pending_review'].includes(workflowStatus));
+    const canAddComments = isReviewer || isAnalyst;
 
     const fetchUserWorkflow = async () => {
         if (fetchInProgress.current || authLoading) return;
@@ -79,7 +77,8 @@ export const MyWorkflow = () => {
                 query = query.eq('is_published', true);
             }
 
-            const { data: workflows, error } = await query;
+            const { data, error } = await query;
+            const workflows = data as any[];
 
             if (error) throw error;
 
@@ -99,51 +98,49 @@ export const MyWorkflow = () => {
         }
     };
 
+    const handleSaveDraft = async () => {
+        if (!workflowId) return;
+        setLoading(true);
+        try {
+            await saveWorkflow('draft', false);
+            setWorkflowStatus('draft');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmitForReview = async () => {
         if (!workflowId) return;
-        const { error } = await supabase
-            .from('workflows')
-            .update({ status: 'pending_review' })
-            .eq('id', workflowId);
-
-        if (error) {
-            showNotification('Failed to submit for review.', 'error');
-        } else {
-            showNotification('Workflow submitted to Reviewer!', 'success');
+        setLoading(true);
+        try {
+            await saveWorkflow('pending_review', false);
             setWorkflowStatus('pending_review');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleApprove = async () => {
         if (!workflowId) return;
-        const { error } = await supabase
-            .from('workflows')
-            .update({ status: 'approved' })
-            .eq('id', workflowId);
-
-        if (error) {
-            showNotification('Failed to approve workflow.', 'error');
-        } else {
-            showNotification('Workflow Approved! Ready for Owner to publish.', 'success');
+        setLoading(true);
+        try {
+            await saveWorkflow('approved', false);
             setWorkflowStatus('approved');
+            showNotification('Workflow Approved! Ready for Owner to publish.', 'success');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handlePublish = async () => {
         if (!workflowId) return;
-        const { error } = await supabase
-            .from('workflows')
-            .update({
-                is_published: true,
-                status: 'published'
-            })
-            .eq('id', workflowId);
-
-        if (error) {
-            showNotification('Failed to publish workflow.', 'error');
-        } else {
-            showNotification('Workflow published to Viewers successfully!', 'success');
+        setLoading(true);
+        try {
+            await saveWorkflow('published', true);
             setWorkflowStatus('published');
+            showNotification('Workflow published to Viewers successfully!', 'success');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -183,9 +180,20 @@ export const MyWorkflow = () => {
                 </div>
                 <div className="flex items-center gap-4">
                     {/* Analyst Actions */}
+                    {canEdit && (
+                        <button
+                            onClick={handleSaveDraft}
+                            disabled={loading}
+                            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-50 transition shadow-sm"
+                        >
+                            <LayoutIcon size={16} />
+                            Save as Draft
+                        </button>
+                    )}
                     {canSubmit && (
                         <button
                             onClick={handleSubmitForReview}
+                            disabled={loading}
                             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100"
                         >
                             <Send size={16} />
@@ -198,13 +206,6 @@ export const MyWorkflow = () => {
                         <div className="flex items-center gap-2">
                             {canReview ? (
                                 <>
-                                    <button
-                                        onClick={() => setShowComments(!showComments)}
-                                        className={`flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-semibold transition ${showComments ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                                    >
-                                        <MessageSquare size={16} />
-                                        Comments
-                                    </button>
                                     <button
                                         onClick={handleApprove}
                                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-lg shadow-green-100"
@@ -224,15 +225,6 @@ export const MyWorkflow = () => {
                     {/* Owner Actions */}
                     {isOwner && (
                         <div className="flex items-center gap-2">
-                            {canViewComments && (
-                                <button
-                                    onClick={() => setShowComments(!showComments)}
-                                    className={`flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-semibold transition ${showComments ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                                >
-                                    <MessageSquare size={16} />
-                                    {showComments ? 'Hide Comments' : 'View Comments'}
-                                </button>
-                            )}
                             {canPublish ? (
                                 <button
                                     onClick={handlePublish}
@@ -247,17 +239,6 @@ export const MyWorkflow = () => {
                                 </span>
                             )}
                         </div>
-                    )}
-
-                    {/* Analyst Comment Toggle */}
-                    {isAnalyst && (
-                        <button
-                            onClick={() => setShowComments(!showComments)}
-                            className={`flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-semibold transition ${showComments ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                            <MessageSquare size={16} />
-                            {showComments ? 'Hide Comments' : 'Comments'}
-                        </button>
                     )}
 
                     <span className="flex items-center gap-2 text-xs text-gray-400 font-medium bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
@@ -287,40 +268,7 @@ export const MyWorkflow = () => {
                     </div>
                 ) : (
                     <div className="flex-1 relative h-full">
-                        <Canvas readOnly={!canEdit} />
-
-                        {/* Comments Panel Overlay */}
-                        {showComments && canViewComments && (
-                            selectedNode ? (
-                                <CommentsPanel
-                                    workflowId={workflowId}
-                                    nodeId={selectedNode.id}
-                                    nodeLabel={selectedNode.data?.label || selectedNode.type}
-                                    onClose={() => setShowComments(false)}
-                                    readOnly={!canAddComments}
-                                />
-                            ) : (
-                                <div className="fixed right-4 top-20 w-72 bg-white shadow-xl border border-gray-200 rounded-xl p-6 z-20 animate-in slide-in-from-right-10 fade-in duration-200">
-                                    <div className="flex flex-col items-center text-center gap-3">
-                                        <div className="bg-blue-50 p-3 rounded-full text-blue-500">
-                                            <MessageSquare size={24} />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-gray-900">Select a Task</h3>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                Click on any node in the canvas to view or add comments.
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => setShowComments(false)}
-                                            className="text-xs text-gray-400 hover:text-gray-600 underline mt-2"
-                                        >
-                                            Close Panel
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        )}
+                        <Canvas readOnly={!canEdit} canAddComments={canAddComments} />
                     </div>
                 )}
             </div>

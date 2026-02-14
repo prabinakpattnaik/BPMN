@@ -1,56 +1,85 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import {
     Layout as LayoutIcon,
-    Users,
-    Activity,
-    CheckCircle,
+    Building2,
+    Globe,
+    Clock,
+    ArrowRight,
     TrendingUp,
-    RefreshCcw
+    Briefcase
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Workflow } from '../../types';
 
-export const OwnerDashboard = () => {
-    const { profile } = useAuth();
-    const [metrics, setMetrics] = useState({
-        total_users: 0,
-        active_users: 0,
+interface AdminMetrics {
+    total_orgs: number;
+    total_workflows: number;
+    published_workflows: number;
+    review_processes: number;
+}
+
+interface WorkflowWithTenant extends Workflow {
+    tenants: {
+        name: string;
+    };
+}
+
+const Dashboard = () => {
+    const [metrics, setMetrics] = useState<AdminMetrics>({
+        total_orgs: 0,
         total_workflows: 0,
-        published_workflows: 0
+        published_workflows: 0,
+        review_processes: 0
     });
-    const [workflows, setWorkflows] = useState<Workflow[]>([]);
+    const [workflows, setWorkflows] = useState<WorkflowWithTenant[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (profile?.tenant_id) {
-            loadDashboardData();
-        }
-    }, [profile?.tenant_id]);
+        loadDashboardData();
+    }, []);
 
     const loadDashboardData = async () => {
         setLoading(true);
         try {
-            if (!profile?.tenant_id) return;
-
             // 1. Fetch Metrics via RPC
-            const { data: metricsData, error: metricsError } = await (supabase as any)
-                .rpc('get_owner_dashboard_stats', { target_tenant_id: profile?.tenant_id || '' });
+            const { data: metricsData, error: metricsError } = await supabase
+                .rpc('get_admin_dashboard_stats');
 
-            if (metricsError) throw metricsError;
+            if (metricsError) {
+                console.warn('RPC might not be deployed yet, falling back to manual counts.');
+                // Fallback if RPC is not yet in DB
+                const [orgs, wfs, pub, rev] = await Promise.all([
+                    supabase.from('tenants').select('*', { count: 'exact', head: true }),
+                    supabase.from('workflows').select('*', { count: 'exact', head: true }),
+                    supabase.from('workflows').select('*', { count: 'exact', head: true }).eq('is_published', true),
+                    supabase.from('workflows').select('*', { count: 'exact', head: true }).eq('status', 'pending_review')
+                ]);
 
-            // 2. Fetch Workflow List
+                setMetrics({
+                    total_orgs: orgs.count || 0,
+                    total_workflows: wfs.count || 0,
+                    published_workflows: pub.count || 0,
+                    review_processes: rev.count || 0
+                });
+            } else {
+                setMetrics(metricsData);
+            }
+
+            // 2. Fetch Workflow List with Tenant info
             const { data: wfData, error: wfError } = await supabase
                 .from('workflows')
-                .select(`*`)
-                .eq('tenant_id', profile.tenant_id)
-                .order('updated_at', { ascending: false });
+                .select(`
+                    *,
+                    tenants (
+                        name
+                    )
+                `)
+                .order('updated_at', { ascending: false })
+                .limit(10);
 
             if (wfError) throw wfError;
-
-            setMetrics(metricsData);
-            setWorkflows(wfData || []);
+            setWorkflows(wfData as any || []);
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         } finally {
@@ -67,7 +96,7 @@ export const OwnerDashboard = () => {
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full"
                     />
-                    <span className="text-gray-500 font-medium animate-pulse">Loading organization data...</span>
+                    <span className="text-gray-500 font-medium animate-pulse">Analyzing system data...</span>
                 </div>
             </div>
         );
@@ -83,10 +112,10 @@ export const OwnerDashboard = () => {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
-                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Organization Overview</h1>
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">System Overview</h1>
                         <p className="text-gray-500 mt-2 flex items-center gap-2">
                             <TrendingUp size={16} className="text-green-500" />
-                            Overview of your organization's performance and activity.
+                            Live system metrics and across all organizations.
                         </p>
                     </motion.div>
                 </div>
@@ -94,36 +123,36 @@ export const OwnerDashboard = () => {
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <MetricCard
-                        title="Total Users"
-                        value={metrics.total_users}
-                        icon={<Users className="text-blue-600" size={24} />}
+                        title="Total Organizations"
+                        value={metrics.total_orgs}
+                        icon={<Building2 className="text-blue-600" size={24} />}
                         color="bg-blue-50"
                         index={0}
                     />
                     <MetricCard
-                        title="Active Users (30d)"
-                        value={metrics.active_users}
-                        icon={<Activity className="text-green-600" size={24} />}
-                        color="bg-green-50"
+                        title="Total Workflows"
+                        value={metrics.total_workflows}
+                        icon={<Briefcase className="text-purple-600" size={24} />}
+                        color="bg-purple-50"
                         index={1}
                     />
                     <MetricCard
-                        title="Total Workflows"
-                        value={metrics.total_workflows}
-                        icon={<LayoutIcon className="text-purple-600" size={24} />}
-                        color="bg-purple-50"
+                        title="Published Live"
+                        value={metrics.published_workflows}
+                        icon={<Globe className="text-green-600" size={24} />}
+                        color="bg-green-50"
                         index={2}
                     />
                     <MetricCard
-                        title="Published Workflows"
-                        value={metrics.published_workflows}
-                        icon={<CheckCircle className="text-indigo-600" size={24} />}
-                        color="bg-indigo-50"
+                        title="Pending Reviews"
+                        value={metrics.review_processes}
+                        icon={<Clock className="text-orange-600" size={24} />}
+                        color="bg-orange-50"
                         index={3}
                     />
                 </div>
 
-                {/* Workflow Activity Section */}
+                {/* Recent Activity Section */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -132,14 +161,15 @@ export const OwnerDashboard = () => {
                 >
                     <div className="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-white">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Recent Workflows</h2>
-                            <p className="text-sm text-gray-400 mt-1">Manage and monitor your active processes</p>
+                            <h2 className="text-xl font-bold text-gray-900">Recent Workflow Activity</h2>
+                            <p className="text-sm text-gray-400 mt-1">Real-time updates across the platform</p>
                         </div>
                         <button
                             onClick={loadDashboardData}
                             className="p-2 hover:bg-gray-50 rounded-full transition-colors text-blue-600"
+                            title="Refresh Data"
                         >
-                            <RefreshCcw size={20} />
+                            <ArrowRight size={20} />
                         </button>
                     </div>
 
@@ -147,9 +177,9 @@ export const OwnerDashboard = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50/30 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                    <th className="px-8 py-5">Workflow Name</th>
-                                    <th className="px-8 py-5">Last Updated</th>
-                                    <th className="px-8 py-5">Status</th>
+                                    <th className="px-8 py-5">Workflow & Org</th>
+                                    <th className="px-8 py-5">Last Activity</th>
+                                    <th className="px-8 py-5">Current Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -158,7 +188,7 @@ export const OwnerDashboard = () => {
                                         <td colSpan={3} className="px-8 py-16 text-center">
                                             <div className="flex flex-col items-center gap-2">
                                                 <LayoutIcon size={40} className="text-gray-200" />
-                                                <span className="text-gray-400 font-medium">No workflows found in this organization.</span>
+                                                <span className="text-gray-400 font-medium">No system activity detected yet.</span>
                                             </div>
                                         </td>
                                     </tr>
@@ -179,7 +209,8 @@ export const OwnerDashboard = () => {
                                                     <div>
                                                         <div className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{wf.name}</div>
                                                         <div className="text-xs font-semibold text-gray-400 flex items-center gap-1 mt-1">
-                                                            ID: ...{wf.id.slice(-6)}
+                                                            <Building2 size={12} />
+                                                            {wf.tenants?.name || 'Independent Org'}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -201,13 +232,19 @@ export const OwnerDashboard = () => {
                             </tbody>
                         </table>
                     </div>
+                    {workflows.length > 0 && (
+                        <div className="px-8 py-4 bg-gray-50/50 border-t border-gray-50 flex justify-center">
+                            <button className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
+                                View Full Platform Audit <ArrowRight size={14} />
+                            </button>
+                        </div>
+                    )}
                 </motion.div>
             </div>
         </div>
     );
 };
 
-// Sub-components for premium feel
 const MetricCard = ({ title, value, icon, color, index }: { title: string, value: number, icon: React.ReactNode, color: string, index: number }) => (
     <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -251,3 +288,5 @@ const StatusBadge = ({ status, isPublished }: { status: string, isPublished: boo
         </div>
     );
 };
+
+export default Dashboard;

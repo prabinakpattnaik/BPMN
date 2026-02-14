@@ -90,7 +90,7 @@ export const OwnerUsersManagement = () => {
 
             // 2. Link Profile to Tenant using Owner RPC
             if (authData.user) {
-                const { error: rpcError } = await supabase.rpc('owner_update_profile', {
+                const { error: rpcError } = await (supabase as any).rpc('owner_update_profile', {
                     target_user_id: authData.user.id,
                     new_full_name: formData.name,
                     new_role: formData.role
@@ -117,7 +117,7 @@ export const OwnerUsersManagement = () => {
 
         try {
             // Update Profile via RPC
-            const { error: rpcError } = await supabase.rpc('owner_update_profile', {
+            const { error: rpcError } = await (supabase as any).rpc('owner_update_profile', {
                 target_user_id: editingUser.id,
                 new_full_name: formData.name,
                 new_role: formData.role
@@ -141,7 +141,7 @@ export const OwnerUsersManagement = () => {
 
         setLoading(true);
         try {
-            const { error } = await supabase.rpc('owner_delete_user', {
+            const { error } = await (supabase as any).rpc('owner_delete_user', {
                 target_user_id: confirmDeleteId
             });
 
@@ -221,9 +221,9 @@ export const OwnerUsersManagement = () => {
                                                 {user.username || 'No email'}
                                             </span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 border ${user.role === 'Owner' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                                    user.role === 'Analyst' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                        user.role === 'Reviewer' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                                                            'bg-gray-50 text-gray-600 border-gray-100'
+                                                user.role === 'Analyst' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                                    user.role === 'Reviewer' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                                                        'bg-gray-50 text-gray-600 border-gray-100'
                                                 }`}>
                                                 {user.role}
                                             </span>

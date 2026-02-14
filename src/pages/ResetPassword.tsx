@@ -34,13 +34,12 @@ export const ResetPassword = () => {
 
             if (resetError) throw resetError;
 
-            // Mark success and sign out to force fresh login
+            // Mark success and navigate to home
             setSuccess(true);
-            await signOut();
 
             setTimeout(() => {
-                navigate('/login');
-            }, 3000);
+                navigate('/');
+            }, 2000);
         } catch (err: any) {
             setError(err.message);
         } finally {

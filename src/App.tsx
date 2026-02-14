@@ -12,6 +12,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { PendingAssignment } from './pages/PendingAssignment';
 import { OwnerDashboard } from './pages/Tenant/OwnerDashboard';
 import { OwnerUsersManagement } from './pages/Tenant/OwnerUsersManagement';
+import Dashboard from './pages/Admin/Dashboard';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { user, profile, loading, needsPasswordReset } = useAuth();
@@ -58,17 +59,17 @@ const HomeRedirect = () => {
 
   // Redirect based on role
   if (profile?.role === 'admin') {
-    return <Navigate to="/admin/flows" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   if (['tenant', 'Owner', 'Analyst', 'Reviewer', 'Viewer'].includes(profile?.role || '')) {
     // If tenant role but no ID (new social signups usually)
-    if (!profile.tenant_id) {
+    if (!profile?.tenant_id) {
       return <Navigate to="/pending-assignment" replace />;
     }
 
     // Redirect Owner to Dashboard, others to Workflow
-    if (profile.role === 'Owner') {
+    if (profile?.role === 'Owner') {
       return <Navigate to="/dashboard" replace />;
     }
 
@@ -107,6 +108,16 @@ function App() {
           />
 
           {/* Admin Routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/users"
             element={

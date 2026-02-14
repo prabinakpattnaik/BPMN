@@ -31,7 +31,7 @@ type WorkflowState = {
     updateNodeData: (id: string, data: any) => void;
     setWorkflowName: (name: string) => void; // Setter for name
 
-    saveWorkflow: () => Promise<void>;
+    saveWorkflow: (status?: string, isPublished?: boolean) => Promise<void>;
     loadWorkflow: (id: string) => Promise<void>;
     resetWorkflow: () => void;
     deleteNode: (id: string) => void;
@@ -85,7 +85,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
         });
     },
 
-    saveWorkflow: async () => {
+    saveWorkflow: async (status?: string, isPublished?: boolean) => {
         let { workflowId, nodes, edges, tenantId, workflowName } = get();
 
         // Self-healing: If tenantId is missing, try to fetch it
@@ -113,14 +113,18 @@ export const useStore = create<WorkflowState>((set, get) => ({
             return;
         }
 
-        const payload = {
+        const payload: any = {
             name: workflowName,
             nodes: nodes as any,
             edges: edges as any,
             updated_at: new Date().toISOString(),
             tenant_id: tenantId,
-            is_published: true // auto-publish for now
+            is_published: isPublished ?? false
         };
+
+        if (status) {
+            payload.status = status;
+        }
 
         try {
             if (workflowId) {

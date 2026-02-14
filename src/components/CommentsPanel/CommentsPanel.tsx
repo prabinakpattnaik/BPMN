@@ -1,18 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import type { Comment } from '../../types';
 
 interface CommentsPanelProps {
-    workflowId: string;
+    workflowId: string | null;
     nodeId: string | null;
-    nodeLabel: string;
-    onClose: () => void;
     readOnly: boolean; // if true, can only view, no add
 }
 
-export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly }: CommentsPanelProps) => {
+export const CommentsPanel = ({ workflowId, nodeId, readOnly }: CommentsPanelProps) => {
     const { user } = useAuth();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -26,14 +24,9 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
     const fetchComments = async () => {
         if (!nodeId || !workflowId) return;
 
-        const { data, error } = await supabase
-            .from('comments')
-            .select(`
-                *,
-                user:user_id (
-                    full_name
-                )
-            `)
+        const { data, error } = await (supabase
+            .from('comments') as any)
+            .select('*')
             .eq('workflow_id', workflowId)
             .eq('node_id', nodeId)
             .order('created_at', { ascending: true });
@@ -41,12 +34,7 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
         if (error) {
             console.error('Error fetching comments:', error);
         } else {
-            // Map the joined user data to user_name for display
-            const mappedComments = data.map((c: any) => ({
-                ...c,
-                user_name: c.user?.full_name || 'Unknown User'
-            }));
-            setComments(mappedComments);
+            setComments(data || []);
             scrollToBottom();
         }
     };
@@ -56,18 +44,20 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
 
         // Subscription for real-time updates
         const channel = supabase
-            .channel(`comments:${workflowId}:${nodeId}`)
+            .channel(`comments:${nodeId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'comments',
-                    filter: `workflow_id=eq.${workflowId} AND node_id=eq.${nodeId}`
+                    filter: `node_id=eq.${nodeId}`
                 },
-                () => {
-                    // Fetch to get user details properly
-                    fetchComments();
+                (payload) => {
+                    // Verify it belongs to this workflow
+                    if (payload.new.workflow_id === workflowId) {
+                        fetchComments();
+                    }
                 }
             )
             .subscribe();
@@ -77,18 +67,21 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
         };
     }, [workflowId, nodeId]);
 
+    const { profile } = useAuth(); // Destructure profile from useAuth
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newComment.trim() || !user || !nodeId) return;
+        if (!newComment.trim() || !user || !nodeId || !workflowId) return;
 
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('comments')
+            const { error } = await (supabase
+                .from('comments') as any)
                 .insert({
                     workflow_id: workflowId,
                     node_id: nodeId,
                     user_id: user.id,
+                    user_name: profile?.full_name || user.email,
                     content: newComment.trim(),
                     created_at: new Date().toISOString()
                 });
@@ -105,25 +98,9 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
     if (!nodeId) return null;
 
     return (
-        <div className="fixed right-0 top-16 bottom-0 w-80 bg-white shadow-xl border-l border-gray-200 flex flex-col z-20">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                <div>
-                    <h3 className="font-bold text-gray-900">Comments</h3>
-                    <p className="text-xs text-gray-500 truncate max-w-[200px]" title={nodeLabel}>
-                        Re: {nodeLabel}
-                    </p>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="p-1 hover:bg-gray-200 rounded-full transition text-gray-400 hover:text-gray-600"
-                >
-                    <X size={18} />
-                </button>
-            </div>
-
+        <div className="flex flex-col h-full bg-white">
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {comments.length === 0 ? (
                     <div className="text-center text-gray-400 text-sm py-8 italic">
                         No comments yet on this task.
@@ -142,7 +119,6 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
                                 <div className="flex items-center gap-1.5 mt-1 px-1">
                                     {!isMe && <span className="text-[10px] font-bold text-gray-600">{comment.user_name}</span>}
                                     <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                                        {/* <Clock size={8} /> */}
                                         {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
@@ -155,7 +131,7 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
 
             {/* Input Area */}
             {!readOnly && (
-                <div className="p-4 border-t border-gray-100 bg-gray-50">
+                <div className="p-4 border-t border-gray-100 bg-gray-50 mt-auto">
                     <form onSubmit={handleSend} className="relative">
                         <textarea
                             value={newComment}
@@ -172,7 +148,7 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
                         />
                         <button
                             type="submit"
-                            disabled={!newComment.trim() || loading}
+                            disabled={!newComment.trim() || loading || !workflowId}
                             className="absolute right-2 bottom-2.5 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:bg-gray-300 shadow-sm"
                         >
                             {loading ? (
@@ -188,7 +164,7 @@ export const CommentsPanel = ({ workflowId, nodeId, nodeLabel, onClose, readOnly
                 </div>
             )}
             {readOnly && (
-                <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-500">
+                <div className="p-4 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-500 mt-auto">
                     Read-only mode.
                 </div>
             )}
