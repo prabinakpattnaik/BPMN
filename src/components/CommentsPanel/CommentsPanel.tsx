@@ -44,7 +44,7 @@ export const CommentsPanel = ({ workflowId, nodeId, readOnly }: CommentsPanelPro
 
         // Subscription for real-time updates
         const channel = supabase
-            .channel(`comments:${nodeId}`)
+            .channel(`comments_room_${nodeId}`)
             .on(
                 'postgres_changes',
                 {
@@ -54,13 +54,24 @@ export const CommentsPanel = ({ workflowId, nodeId, readOnly }: CommentsPanelPro
                     filter: `node_id=eq.${nodeId}`
                 },
                 (payload) => {
-                    // Verify it belongs to this workflow
-                    if (payload.new.workflow_id === workflowId) {
-                        fetchComments();
+                    const freshComment = payload.new as Comment;
+                    if (freshComment.workflow_id === workflowId) {
+                        setComments(prev => {
+                            // Check if we already have this comment (prevents duplicates from optimistic + real-time)
+                            if (prev.some(c => c.id === freshComment.id)) return prev;
+
+                            // If it's a temp comment from 'Me', replace it or ignore the server version if we prefer local
+                            // Actually, just add it and filter out any temporary ones that match content
+                            const filtered = prev.filter(c => !(c.id.toString().startsWith('temp-') && c.content === freshComment.content));
+                            return [...filtered, freshComment];
+                        });
+                        setTimeout(scrollToBottom, 50);
                     }
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('Comment subscription status:', status);
+            });
 
         return () => {
             supabase.removeChannel(channel);
@@ -73,6 +84,22 @@ export const CommentsPanel = ({ workflowId, nodeId, readOnly }: CommentsPanelPro
         e.preventDefault();
         if (!newComment.trim() || !user || !nodeId || !workflowId) return;
 
+        const content = newComment.trim();
+        const optimisticComment: Comment = {
+            id: 'temp-' + Date.now(),
+            workflow_id: workflowId,
+            node_id: nodeId,
+            user_id: user.id,
+            user_name: profile?.full_name || user.email || 'You',
+            content: content,
+            created_at: new Date().toISOString()
+        };
+
+        // Optimistic Update: Add immediately to UI
+        setComments(prev => [...prev, optimisticComment]);
+        setNewComment('');
+        scrollToBottom();
+
         setLoading(true);
         try {
             const { error } = await (supabase
@@ -82,12 +109,15 @@ export const CommentsPanel = ({ workflowId, nodeId, readOnly }: CommentsPanelPro
                     node_id: nodeId,
                     user_id: user.id,
                     user_name: profile?.full_name || user.email,
-                    content: newComment.trim(),
+                    content: content,
                     created_at: new Date().toISOString()
                 });
 
-            if (error) throw error;
-            setNewComment('');
+            if (error) {
+                // Rollback if failed
+                fetchComments();
+                throw error;
+            }
         } catch (err) {
             console.error('Error sending comment:', err);
         } finally {

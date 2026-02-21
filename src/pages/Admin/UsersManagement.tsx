@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Search, Building2, Mail, Shield, X, Check, Edit2Icon } from 'lucide-react';
+import { UserPlus, Search, Building2, Mail, Shield, X, Check, Edit2Icon, Key, Users, Eye, Zap } from 'lucide-react';
 import { useStore } from '../../lib/store';
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
+import { CustomSelect } from '../../components/CustomSelect/CustomSelect';
 
 type UserProfile = {
     id: string;
@@ -324,9 +325,9 @@ export const UsersManagement = () => {
             {/* Modal for Add/Edit User */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden transform transition-all flex flex-col">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md max-h-[90vh] transform transition-all flex flex-col">
                         {/* Fixed Header */}
-                        <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0">
+                        <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0 rounded-t-[2rem]">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900">{editingUser ? 'Update Profile' : 'Create New Account'}</h2>
                                 <p className="text-sm text-gray-500 mt-1">{editingUser ? 'Modify user details and organization.' : 'Set up a new user and assign them to an org.'}</p>
@@ -449,30 +450,30 @@ export const UsersManagement = () => {
 
                                 {/* Role Selection */}
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-gray-700 ml-1">Role</label>
                                     {tenants.some(t => t.name.toLowerCase() === orgSearch.toLowerCase()) ? (
-                                        <div className="relative">
-                                            <select
-                                                value={formData.role}
-                                                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none bg-white cursor-pointer"
-                                            >
-                                                <option value="Owner">Owner</option>
-                                                <option value="Analyst">Analyst</option>
-                                                <option value="Reviewer">Reviewer</option>
-                                                <option value="Viewer">Viewer</option>
-                                            </select>
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                                                <Shield size={16} />
-                                            </div>
-                                        </div>
+                                        <CustomSelect
+                                            label="Account Role"
+                                            value={formData.role}
+                                            onChange={(val) => setFormData({ ...formData, role: val })}
+                                            options={[
+                                                { value: 'Owner', label: 'Owner (Manager)', icon: <Key size={14} /> },
+                                                { value: 'Analyst', label: 'Analyst (Creator)', icon: <Zap size={14} /> },
+                                                { value: 'Reviewer', label: 'Reviewer (Gatekeeper)', icon: <Users size={14} /> },
+                                                { value: 'Viewer', label: 'Viewer (Reader)', icon: <Eye size={14} /> },
+                                                { value: 'admin', label: 'Admin (System)', icon: <Shield size={14} /> },
+                                            ]}
+                                        />
                                     ) : (
-                                        <div className="w-full px-4 py-3 border border-gray-100 bg-gray-50 text-gray-500 rounded-xl flex items-center justify-between cursor-not-allowed">
-                                            <span>Owner</span>
-                                            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-600">Default for New Org</span>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-bold text-gray-700 ml-1">Role</label>
+                                            <div className="w-full px-4 py-3 border border-gray-100 bg-gray-50 text-gray-500 rounded-xl flex items-center justify-between cursor-not-allowed text-sm">
+                                                <span>Owner</span>
+                                                <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-600">Default for New Org</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
+
                             </div>
 
                             {/* Fixed Footer Buttons */}

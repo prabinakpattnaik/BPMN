@@ -20,7 +20,9 @@ type WorkflowState = {
     selectedNode: Node | null;
     workflowId: string | null;
     tenantId: string | null;
-    workflowName: string; // Add workflow name state
+    workflowName: string;
+    workflowStatus: string;
+    hierarchyLevel: number;
 
     onNodesChange: OnNodesChange;
     onEdgesChange: OnEdgesChange;
@@ -31,7 +33,7 @@ type WorkflowState = {
     updateNodeData: (id: string, data: any) => void;
     setWorkflowName: (name: string) => void; // Setter for name
 
-    saveWorkflow: (status?: string, isPublished?: boolean) => Promise<void>;
+    saveWorkflow: (status?: string, isPublished?: boolean, reviewerId?: string, hierarchyLevel?: number) => Promise<void>;
     loadWorkflow: (id: string) => Promise<void>;
     resetWorkflow: () => void;
     deleteNode: (id: string) => void;
@@ -48,6 +50,8 @@ export const useStore = create<WorkflowState>((set, get) => ({
     workflowId: null,
     tenantId: null,
     workflowName: 'Untitled Workflow',
+    workflowStatus: 'Draft',
+    hierarchyLevel: 4,
     notification: null,
 
     onNodesChange: (changes: NodeChange[]) => {
@@ -85,7 +89,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
         });
     },
 
-    saveWorkflow: async (status?: string, isPublished?: boolean) => {
+    saveWorkflow: async (status?: string, isPublished?: boolean, reviewerId?: string, hierarchyLevel?: number) => {
         let { workflowId, nodes, edges, tenantId, workflowName } = get();
 
         // Self-healing: If tenantId is missing, try to fetch it
@@ -101,7 +105,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
 
                 tenantId = (profile as any)?.tenant_id;
                 if (tenantId) {
-                    set({ tenantId }); // Update store
+                    set({ tenantId });
                     console.log("Tenant ID recovered:", tenantId);
                 }
             }
@@ -115,8 +119,8 @@ export const useStore = create<WorkflowState>((set, get) => ({
 
         const payload: any = {
             name: workflowName,
-            nodes: nodes as any,
-            edges: edges as any,
+            nodes: nodes,
+            edges: edges,
             updated_at: new Date().toISOString(),
             tenant_id: tenantId,
             is_published: isPublished ?? false
@@ -124,6 +128,14 @@ export const useStore = create<WorkflowState>((set, get) => ({
 
         if (status) {
             payload.status = status;
+        }
+
+        if (reviewerId) {
+            payload.reviewer_id = reviewerId;
+        }
+
+        if (hierarchyLevel) {
+            payload.hierarchy_level = hierarchyLevel;
         }
 
         try {
@@ -148,13 +160,11 @@ export const useStore = create<WorkflowState>((set, get) => ({
                     .select()
                     .single();
 
-                if (error) throw error;
-
                 if (data) {
                     set({ workflowId: data.id });
-                    console.log("Workflow created successfully with ID:", data.id);
-                    get().showNotification("New workflow created successfully", 'success');
                 }
+
+                if (error) throw error;
             }
         } catch (err: any) {
             console.error("Error saving workflow:", err.message);
@@ -180,10 +190,21 @@ export const useStore = create<WorkflowState>((set, get) => ({
         const workflow = data;
 
         if (workflow) {
+            // Map legacy or DB status to UI status
+            let status = workflow.status;
+            if (!['Draft', 'Under Review', 'Approved', 'Published', 'Rejected'].includes(status)) {
+                if (workflow.is_published) status = 'Published';
+                else if (status === 'pending_review') status = 'Under Review';
+                else if (status === 'approved') status = 'Approved';
+                else status = 'Draft';
+            }
+
             set({
                 workflowId: workflow.id,
                 tenantId: workflow.tenant_id,
-                workflowName: workflow.name, // Load name
+                workflowName: workflow.name,
+                workflowStatus: status,
+                hierarchyLevel: workflow.hierarchy_level || 4,
                 nodes: (workflow.nodes as any) || [],
                 edges: (workflow.edges as any) || [],
             });
@@ -193,8 +214,10 @@ export const useStore = create<WorkflowState>((set, get) => ({
     resetWorkflow: () => {
         set({
             workflowId: null,
-            tenantId: null,
+            // tenantId: null,
             workflowName: 'Untitled Workflow',
+            workflowStatus: 'Draft',
+            hierarchyLevel: 4,
             nodes: [],
             edges: [],
             selectedNode: null

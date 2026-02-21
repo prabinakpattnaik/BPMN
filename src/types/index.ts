@@ -14,7 +14,8 @@ export type Profile = {
     username: string | null;
     full_name: string | null;
     tenant_id: string | null;
-    role: string;
+    role: UserRole;
+    hierarchy_level?: number;
 };
 
 export type Workflow = {
@@ -22,14 +23,25 @@ export type Workflow = {
     created_at: string;
     updated_at: string;
     name: string;
-    description: string | null;
-    tenant_id: string;
-    nodes: Node[];
-    edges: Edge[];
     is_published: boolean;
     created_by: string;
-    status: 'draft' | 'pending_review' | 'approved' | 'published';
+    description: string | null;
+    status: 'Draft' | 'Under Review' | 'Approved' | 'Published' | 'Rejected';
+    hierarchy_level: 1 | 2 | 3 | 4;
+    nodes: Node[];
+    edges: Edge[];
+    tenant_id: string;
+    reviewer_id?: string;
 };
+
+export type UserRole = 'Owner' | 'Admin' | 'Analyst' | 'Reviewer' | 'Viewer' | 'admin' | 'tenant';
+
+export const HIERARCHY_LEVELS = {
+    L1: 1,
+    L2: 2,
+    L3: 3,
+    L4: 4
+} as const;
 
 export type Comment = {
     id: string;

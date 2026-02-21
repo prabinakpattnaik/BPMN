@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Search, Mail, Shield, X, Edit2Icon, Trash2 } from 'lucide-react';
+import { UserPlus, Search, Mail, Shield, X, Edit2Icon, Trash2, Key, Users, Eye, Zap } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useStore } from '../../lib/store';
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
+import { CustomSelect } from '../../components/CustomSelect/CustomSelect';
 
 type UserProfile = {
     id: string;
@@ -28,11 +29,12 @@ export const OwnerUsersManagement = () => {
         name: '',
         email: '',
         password: '',
-        role: 'Viewer'
+        role: 'Viewer',
+        hierarchy_level: 4
     });
 
     // For Editing
-    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    const [editingUser, setEditingUser] = useState<UserProfile & { hierarchy_level?: number } | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const fetchUsers = async () => {
@@ -81,7 +83,8 @@ export const OwnerUsersManagement = () => {
                     data: {
                         full_name: formData.name,
                         role: formData.role,
-                        tenant_id: profile?.tenant_id // Store in metadata too
+                        tenant_id: profile?.tenant_id,
+                        hierarchy_level: formData.hierarchy_level
                     }
                 }
             });
@@ -93,7 +96,8 @@ export const OwnerUsersManagement = () => {
                 const { error: rpcError } = await (supabase as any).rpc('owner_update_profile', {
                     target_user_id: authData.user.id,
                     new_full_name: formData.name,
-                    new_role: formData.role
+                    new_role: formData.role,
+                    new_hierarchy_level: formData.hierarchy_level
                 });
 
                 if (rpcError) throw rpcError;
@@ -101,7 +105,7 @@ export const OwnerUsersManagement = () => {
 
             showNotification(`User ${formData.name} created successfully!`, 'success');
             setIsModalOpen(false);
-            setFormData({ name: '', email: '', password: '', role: 'Viewer' });
+            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 4 });
             fetchUsers();
         } catch (err: any) {
             showNotification('Error creating user: ' + err.message, 'error');
@@ -120,7 +124,8 @@ export const OwnerUsersManagement = () => {
             const { error: rpcError } = await (supabase as any).rpc('owner_update_profile', {
                 target_user_id: editingUser.id,
                 new_full_name: formData.name,
-                new_role: formData.role
+                new_role: formData.role,
+                new_hierarchy_level: formData.hierarchy_level
             });
 
             if (rpcError) throw rpcError;
@@ -178,7 +183,7 @@ export const OwnerUsersManagement = () => {
                     <button
                         onClick={() => {
                             setEditingUser(null);
-                            setFormData({ name: '', email: '', password: '', role: 'Viewer' });
+                            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 4 });
                             setIsModalOpen(true);
                         }}
                         className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-semibold"
@@ -239,7 +244,8 @@ export const OwnerUsersManagement = () => {
                                                 name: user.full_name || '',
                                                 email: user.username || '',
                                                 password: '',
-                                                role: user.role || 'Viewer'
+                                                role: user.role || 'Viewer',
+                                                hierarchy_level: (user as any).hierarchy_level || 4
                                             });
                                             setIsModalOpen(true);
                                         }}
@@ -269,8 +275,8 @@ export const OwnerUsersManagement = () => {
             {/* Modal for Add/Edit User */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all flex flex-col">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">{editingUser ? 'Update Member' : 'Add Team Member'}</h2>
                                 <p className="text-xs text-gray-500 mt-1">Manage access for your organization.</p>
@@ -323,19 +329,38 @@ export const OwnerUsersManagement = () => {
                                 </>
                             )}
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Role</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm bg-white"
-                                >
-                                    <option value="Analyst">Analyst</option>
-                                    <option value="Reviewer">Reviewer</option>
-                                    <option value="Viewer">Viewer</option>
-                                    <option value="Owner">Owner</option>
-                                </select>
-                            </div>
+                            <CustomSelect
+                                label="Member Role"
+                                value={formData.role}
+                                onChange={(val) => setFormData({ ...formData, role: val })}
+                                options={[
+                                    { value: 'Owner', label: 'Owner (Manager)', icon: <Key size={14} /> },
+                                    { value: 'Admin', label: 'Admin (Developer)', icon: <Shield size={14} /> },
+                                    { value: 'Analyst', label: 'Analyst (Creator)', icon: <Zap size={14} /> },
+                                    { value: 'Reviewer', label: 'Reviewer (Gatekeeper)', icon: <Users size={14} /> },
+                                    { value: 'Viewer', label: 'Viewer (Reader)', icon: <Eye size={14} /> },
+                                ]}
+                            />
+
+                            {formData.role === 'Viewer' && (
+                                <CustomSelect
+                                    label="Hierarchy Level"
+                                    value={formData.hierarchy_level}
+                                    onChange={(val) => setFormData({ ...formData, hierarchy_level: parseInt(val) })}
+                                    options={[
+                                        { value: 1, label: 'L1 (Direct View & Below)' },
+                                        { value: 2, label: 'L2 (Department View & Below)' },
+                                        { value: 3, label: 'L3 (Team View & Below)' },
+                                        { value: 4, label: 'L4 (Individual View Only)' },
+                                    ]}
+                                />
+                            )}
+                            {formData.role === 'Viewer' && (
+                                <p className="text-[10px] text-gray-500 ml-1">
+                                    L1 sees L1-L4. L2 sees L2-L4. L3 sees L3-L4. L4 sees L4.
+                                </p>
+                            )}
+
 
                             <button
                                 type="submit"

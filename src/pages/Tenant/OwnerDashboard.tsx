@@ -6,8 +6,7 @@ import {
     Users,
     Activity,
     CheckCircle,
-    TrendingUp,
-    RefreshCcw
+    TrendingUp
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Workflow } from '../../types';
@@ -22,6 +21,19 @@ export const OwnerDashboard = () => {
     });
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [expandedLevels, setExpandedLevels] = useState<Record<number, boolean>>({ 1: true, 2: true, 3: true, 4: true });
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredWorkflows = workflows.filter(w =>
+        w.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const groupedWorkflows = {
+        1: filteredWorkflows.filter(w => w.hierarchy_level === 1),
+        2: filteredWorkflows.filter(w => w.hierarchy_level === 2),
+        3: filteredWorkflows.filter(w => w.hierarchy_level === 3),
+        4: filteredWorkflows.filter(w => (w.hierarchy_level === 4 || !w.hierarchy_level))
+    };
 
     useEffect(() => {
         if (profile?.tenant_id) {
@@ -123,84 +135,106 @@ export const OwnerDashboard = () => {
                     />
                 </div>
 
-                {/* Workflow Activity Section */}
+                {/* Process Hierarchy Section */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden"
+                    className="space-y-6"
                 >
-                    <div className="px-8 py-6 border-b border-gray-50 flex justify-between items-center bg-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900">Recent Workflows</h2>
-                            <p className="text-sm text-gray-400 mt-1">Manage and monitor your active processes</p>
+                            <h2 className="text-xl font-bold text-gray-900">Process Hierarchy</h2>
+                            <p className="text-sm text-gray-400 mt-1">
+                                {searchTerm ? `Showing ${filteredWorkflows.length} matches for "${searchTerm}"` : `Current organization contains ${workflows.length} processes`}
+                            </p>
                         </div>
-                        <button
-                            onClick={loadDashboardData}
-                            className="p-2 hover:bg-gray-50 rounded-full transition-colors text-blue-600"
-                        >
-                            <RefreshCcw size={20} />
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search processes..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-64 transition-all"
+                                />
+                                <LayoutIcon className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                            </div>
+                            <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+                                <button onClick={() => setExpandedLevels({ 1: true, 2: true, 3: true, 4: true })} className="text-xs text-blue-600 hover:text-blue-800 font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">Expand All</button>
+                                <button onClick={() => setExpandedLevels({})} className="text-xs text-gray-500 hover:text-gray-700 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Collapse All</button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="bg-gray-50/30 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                    <th className="px-8 py-5">Workflow Name</th>
-                                    <th className="px-8 py-5">Last Updated</th>
-                                    <th className="px-8 py-5">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {workflows.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={3} className="px-8 py-16 text-center">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <LayoutIcon size={40} className="text-gray-200" />
-                                                <span className="text-gray-400 font-medium">No workflows found in this organization.</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    workflows.map((wf, idx) => (
-                                        <motion.tr
-                                            key={wf.id}
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.1 * idx }}
-                                            className="hover:bg-blue-50/30 transition-all duration-200 group"
-                                        >
-                                            <td className="px-8 py-5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                                                        <LayoutIcon size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{wf.name}</div>
-                                                        <div className="text-xs font-semibold text-gray-400 flex items-center gap-1 mt-1">
-                                                            ID: ...{wf.id.slice(-6)}
+                    {[1, 2, 3, 4].map(level => {
+                        const levelWorkflows = groupedWorkflows[level as keyof typeof groupedWorkflows] || [];
+                        const isExpanded = expandedLevels[level];
+                        const levelNum = level as 1 | 2 | 3 | 4;
+
+                        const levelConfig = {
+                            1: { color: 'blue', label: 'L1: Restricted (Direct View & Below)', border: 'border-blue-200', bg: 'bg-blue-50', text: 'text-blue-900' },
+                            2: { color: 'green', label: 'L2: Confidential (Dept View & Below)', border: 'border-green-200', bg: 'bg-green-50', text: 'text-green-900' },
+                            3: { color: 'yellow', label: 'L3: Internal (Team View & Below)', border: 'border-yellow-200', bg: 'bg-yellow-50', text: 'text-yellow-900' },
+                            4: { color: 'purple', label: 'L4: Public (Individual View Only)', border: 'border-purple-200', bg: 'bg-purple-50', text: 'text-purple-900' }
+                        }[levelNum];
+
+                        return (
+                            <div key={level} className={`rounded-xl border ${levelConfig.border} overflow-hidden shadow-sm bg-white transition-all duration-300 ${isExpanded ? 'shadow-md ring-1 ring-black/5' : ''}`}>
+                                <button
+                                    onClick={() => setExpandedLevels(prev => ({ ...prev, [level]: !prev[level] }))}
+                                    className={`w-full px-6 py-4 ${levelConfig.bg} flex items-center justify-between hover:brightness-95 transition-all`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-lg font-bold ${levelConfig.text} flex items-center gap-2`}>
+                                            <span className="text-sm opacity-60">{isExpanded ? '▼' : '▶'}</span> {levelConfig.label}
+                                        </span>
+                                        <span className="bg-white/60 px-2.5 py-0.5 rounded-full text-xs font-bold text-gray-700 backdrop-blur-sm border border-white/20 shadow-sm">
+                                            {levelWorkflows.length} Processes
+                                        </span>
+                                    </div>
+                                </button>
+
+                                {isExpanded && (
+                                    <div className="divide-y divide-gray-100 animate-in slide-in-from-top-2 duration-200">
+                                        {levelWorkflows.length === 0 ? (
+                                            <div className="p-8 text-center text-gray-400 text-sm italic bg-gray-50/30">No processes defined for this hierarchy level.</div>
+                                        ) : (
+                                            levelWorkflows.map(wf => (
+                                                <div key={wf.id} className="p-4 hover:bg-gray-50 transition flex items-center justify-between group pl-8 border-l-4 border-transparent hover:border-l-blue-500">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`h-10 w-10 rounded-lg ${levelConfig.bg} flex items-center justify-center ${levelConfig.text} font-bold opacity-80 shadow-sm text-sm border border-black/5`}>
+                                                            L{level}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition text-base">{wf.name}</h4>
+                                                            <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                                                <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 border border-gray-200">ID: {wf.id.slice(0, 8)}</span>
+                                                                <span className="text-gray-300">•</span>
+                                                                <span className="flex items-center gap-1">
+                                                                    Updated {new Date(wf.updated_at).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
+
+                                                    <div className="flex items-center gap-4">
+                                                        <StatusBadge status={wf.status} isPublished={wf.is_published} />
+                                                        <button
+                                                            onClick={() => window.location.href = `/my-workflow?id=${wf.id}`}
+                                                            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-lg text-xs uppercase tracking-wider hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm group-hover:shadow-md active:scale-95"
+                                                        >
+                                                            View Process
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <div className="text-sm font-medium text-gray-700">
-                                                    {new Date(wf.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                </div>
-                                                <div className="text-[10px] text-gray-400 font-bold uppercase mt-1 tracking-tighter">
-                                                    {new Date(wf.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <StatusBadge status={wf.status} isPublished={wf.is_published} />
-                                            </td>
-                                        </motion.tr>
-                                    ))
+                                            ))
+                                        )}
+                                    </div>
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        );
+                    })}
                 </motion.div>
             </div>
         </div>
@@ -231,9 +265,10 @@ const MetricCard = ({ title, value, icon, color, index }: { title: string, value
 const StatusBadge = ({ status, isPublished }: { status: string, isPublished: boolean }) => {
     const config: Record<string, { bg: string, text: string, border: string }> = {
         draft: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' },
-        pending_review: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+        under_review: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
         approved: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
         published: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+        rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
     };
 
     const normalized = (status || 'draft').toLowerCase().replace(' ', '_');
