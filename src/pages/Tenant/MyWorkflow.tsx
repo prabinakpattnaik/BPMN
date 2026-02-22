@@ -30,19 +30,22 @@ export const MyWorkflow = () => {
     const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
     const [allAvailableWorkflows, setAllAvailableWorkflows] = useState<any[]>([]);
 
-    // Role Checks
     // Role Checks (Case-Insensitive)
     const role = (profile?.role || 'Viewer').toLowerCase();
-    const isAdmin = role === 'Admin'.toLowerCase() || role === 'admin';
-    const isOwner = role === 'Owner'.toLowerCase() || role === 'tenant';
-    const isAnalyst = role === 'Analyst'.toLowerCase();
-    const isReviewer = role === 'Reviewer'.toLowerCase();
-    const isViewer = role === 'Viewer'.toLowerCase();
+    const isSuperAdmin = role === 'super admin' || role === 'super_admin';
+    const isAdmin = role === 'admin' || isSuperAdmin;
+    const isOwner = role === 'owner' || role === 'tenant';
+    const isAnalyst = role === 'analyst';
+    const isReviewer = role === 'reviewer';
+    const isViewer = role === 'viewer';
     const isCreator = isAnalyst || isOwner || isAdmin;
 
     const [isCreating, setIsCreating] = useState(false);
+    const [showNamingModal, setShowNamingModal] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newLevel, setNewLevel] = useState(4);
 
-    const showHierarchySidebar = isOwner || isAdmin || isViewer;
+    const showHierarchySidebar = isOwner || isAdmin || isViewer || isAnalyst;
 
 
     // Permission Logic
@@ -116,7 +119,7 @@ export const MyWorkflow = () => {
 
             // 2. Fetch Hierarchy Navigator Entries (Owner, Admin, Viewer)
             if (showHierarchySidebar) {
-                const userAccessLevel = (isOwner || isAdmin) ? 1 : (profile?.hierarchy_level || 4);
+                const userAccessLevel = (isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4);
 
                 let sidebarQuery = supabase
                     .from('workflows')
@@ -130,6 +133,8 @@ export const MyWorkflow = () => {
                 if (isViewer) {
                     sidebarQuery = sidebarQuery.eq('status', 'Published');
                 }
+
+                // Analysts used to only see their own, but now they see all
 
                 const { data: sidebarData, error: sidebarError } = await sidebarQuery;
                 if (sidebarError) throw sidebarError;
@@ -172,25 +177,32 @@ export const MyWorkflow = () => {
     };
 
     const handleSaveDraft = async () => {
-        if (!workflowId) return;
+        if (!workflowId && !isCreating) return;
         setLoading(true);
         try {
             await saveWorkflow('Draft', false);
             useStore.setState({ workflowStatus: 'Draft' });
+            setIsCreating(false); // Reset creating state after success
             showNotification('Workflow saved as Draft', 'success');
+            // Refresh the workflow list to see the new entry
+            fetchUserWorkflow();
+        } catch (err) {
+            console.error('Save failed:', err);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSubmitForReview = async () => {
-        if (!workflowId) return;
+        if (!workflowId && !isCreating) return;
         setLoading(true);
         try {
             await saveWorkflow('Under Review', false, selectedReviewer);
             useStore.setState({ workflowStatus: 'Under Review' });
+            setIsCreating(false);
             setShowReviewerModal(false);
             showNotification('Workflow submitted for review', 'success');
+            fetchUserWorkflow();
         } finally {
             setLoading(false);
         }
@@ -381,16 +393,16 @@ export const MyWorkflow = () => {
                         <div className="p-6 border-b border-gray-100 bg-white">
                             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
                                 <LayoutIcon size={16} className="text-blue-600" />
-                                Process Navigator
+                                {isAnalyst ? "Design Hub" : "Process Navigator"}
                             </h2>
                             <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
-                                L{(isOwner || isAdmin) ? 1 : (profile?.hierarchy_level || 4)} Access Cleared
+                                {isAnalyst ? "Manager View" : `L${(isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4)} Access Cleared`}
                             </p>
                         </div>
 
                         {/* Level Selectors */}
                         <div className="p-4 space-y-1 bg-white/50 border-b border-gray-100">
-                            {[1, 2, 3, 4].filter(l => l >= ((isOwner || isAdmin) ? 1 : (profile?.hierarchy_level || 4))).map(level => {
+                            {[1, 2, 3, 4].filter(l => l >= ((isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4))).map(level => {
 
                                 const levelConfig = {
                                     1: { label: 'L1 Restricted', text: 'text-blue-700', bg: 'bg-blue-50', active: 'bg-blue-200 border-blue-300 ring-4 ring-blue-50 shadow-sm' },
@@ -429,8 +441,21 @@ export const MyWorkflow = () => {
 
                         {/* Process List for Level */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                            <div className="px-2 mb-2">
+                            <div className="px-2 mb-2 flex items-center justify-between">
                                 <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Available Processes</span>
+                                {isAnalyst && (
+                                    <button
+                                        onClick={() => {
+                                            resetWorkflow();
+                                            setNewName('');
+                                            setNewLevel(selectedLevel || 4);
+                                            setShowNamingModal(true);
+                                        }}
+                                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md transition-colors"
+                                    >
+                                        + New Process
+                                    </button>
+                                )}
                             </div>
                             {allAvailableWorkflows.filter(w => w.hierarchy_level === selectedLevel).length === 0 ? (
                                 <div className="p-4 text-center">
@@ -458,7 +483,7 @@ export const MyWorkflow = () => {
                     </aside>
                 )}
 
-                {!workflowId ? (
+                {!showCanvas ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50">
                         <div className="bg-white p-12 rounded-[2.5rem] shadow-xl border border-gray-100 max-w-sm text-center transform transition-all hover:scale-[1.02]">
                             <div className="h-20 w-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
@@ -480,7 +505,9 @@ export const MyWorkflow = () => {
                                 onClick={() => {
                                     if (isCreator) {
                                         resetWorkflow();
-                                        setIsCreating(true);
+                                        setNewName('');
+                                        setNewLevel(selectedLevel || 4);
+                                        setShowNamingModal(true);
                                     } else {
                                         fetchUserWorkflow();
                                     }
@@ -498,6 +525,56 @@ export const MyWorkflow = () => {
                 )}
             </div>
 
+
+            {/* Create Process Modal */}
+            {showNamingModal && (
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="text-lg font-bold text-gray-900">Create New Process</h3>
+                            <button onClick={() => setShowNamingModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-2">Process Name</label>
+                                <input
+                                    type="text"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    placeholder="Enter process name..."
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-2">Hierarchy Level</label>
+                                <select
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white"
+                                    value={newLevel}
+                                    onChange={(e) => setNewLevel(Number(e.target.value))}
+                                >
+                                    <option value={1}>L1 - Restricted</option>
+                                    <option value={2}>L2 - Confidential</option>
+                                    <option value={3}>L3 - Internal</option>
+                                    <option value={4}>L4 - Public</option>
+                                </select>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (!newName.trim()) return;
+                                    useStore.setState({ workflowName: newName, hierarchyLevel: newLevel });
+                                    setIsCreating(true);
+                                    setShowNamingModal(false);
+                                }}
+                                disabled={!newName.trim()}
+                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:opacity-50 transition-all"
+                            >
+                                Start Designing
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Submit for Review Modal */}
             {showReviewerModal && (

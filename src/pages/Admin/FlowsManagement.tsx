@@ -4,6 +4,7 @@ import { Plus, Workflow, User as UserIcon, Building2, ExternalLink, Trash2, Chec
 import { Canvas } from '../../components/Canvas/Canvas';
 import { useStore } from '../../lib/store';
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
+import { INITIAL_BPMN_XML } from '../../lib/bpmn-constants';
 
 type FlowData = {
     id: string;
@@ -36,7 +37,7 @@ export const FlowsManagement = () => {
     const [selectedTenant, setSelectedTenant] = useState<string>('');
     const [selectedUser, setSelectedUser] = useState<string>('');
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-    const { nodes, edges, setNodes, setEdges, workflowName, setWorkflowName, showNotification } = useStore();
+    const { nodes, edges, setNodes, setEdges, workflowName, setWorkflowName, showNotification, bpmnXml } = useStore();
 
     const fetchFlows = async () => {
         setLoading(true);
@@ -130,13 +131,19 @@ export const FlowsManagement = () => {
             return;
         }
 
-        const payload = {
+        const payload: any = {
             name: workflowName,
             tenant_id: selectedTenant,
             nodes: nodes,
             edges: edges,
             created_by: selectedUser
         };
+
+        const xmlToSave = bpmnXml || INITIAL_BPMN_XML;
+
+        if (xmlToSave) {
+            payload.bpmn_xml = xmlToSave;
+        }
 
         let result;
         if (editingFlowId) {

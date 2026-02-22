@@ -13,6 +13,7 @@ import {
     type OnConnect,
 } from 'reactflow';
 import { supabase } from './supabase';
+import { INITIAL_BPMN_XML } from './bpmn-constants';
 
 type WorkflowState = {
     nodes: Node[];
@@ -23,6 +24,7 @@ type WorkflowState = {
     workflowName: string;
     workflowStatus: string;
     hierarchyLevel: number;
+    bpmnXml: string | null;
 
     onNodesChange: OnNodesChange;
     onEdgesChange: OnEdgesChange;
@@ -52,6 +54,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
     workflowName: 'Untitled Workflow',
     workflowStatus: 'Draft',
     hierarchyLevel: 4,
+    bpmnXml: null,
     notification: null,
 
     onNodesChange: (changes: NodeChange[]) => {
@@ -92,26 +95,31 @@ export const useStore = create<WorkflowState>((set, get) => ({
     saveWorkflow: async (status?: string, isPublished?: boolean, reviewerId?: string, hierarchyLevel?: number) => {
         let { workflowId, nodes, edges, tenantId, workflowName } = get();
 
-        // Self-healing: If tenantId is missing, try to fetch it
+        // Self-healing: If tenantId is missing, try to fetch it and role
+        let userRole = '';
         if (!tenantId) {
-            console.warn("Tenant ID missing in store, attempting to fetch...");
+            console.warn("Tenant ID or Role missing in store, attempting to fetch...");
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('tenant_id')
+                    .select('tenant_id, role')
                     .eq('id', user.id)
                     .single();
 
-                tenantId = (profile as any)?.tenant_id;
+                const p = profile as any;
+                tenantId = p?.tenant_id;
+                userRole = (p?.role || '').toLowerCase();
+
                 if (tenantId) {
                     set({ tenantId });
-                    console.log("Tenant ID recovered:", tenantId);
                 }
             }
         }
 
-        if (!tenantId) {
+        const isSuperAdmin = userRole === 'super admin' || userRole === 'super_admin';
+
+        if (!tenantId && !isSuperAdmin) {
             console.error("Cannot save: No tenant ID found.");
             get().showNotification("Cannot save: User is not linked to any organization/tenant.", 'error');
             return;
@@ -122,9 +130,12 @@ export const useStore = create<WorkflowState>((set, get) => ({
             nodes: nodes,
             edges: edges,
             updated_at: new Date().toISOString(),
-            tenant_id: tenantId,
             is_published: isPublished ?? false
         };
+
+        if (tenantId) {
+            payload.tenant_id = tenantId;
+        }
 
         if (status) {
             payload.status = status;
@@ -138,16 +149,31 @@ export const useStore = create<WorkflowState>((set, get) => ({
             payload.hierarchy_level = hierarchyLevel;
         }
 
+        const { bpmnXml } = get();
+        const xmlToSave = bpmnXml || INITIAL_BPMN_XML;
+
+        if (xmlToSave) {
+            payload.bpmn_xml = xmlToSave;
+        }
+
+        console.log("Saving workflow payload:", {
+            id: workflowId,
+            name: payload.name,
+            xmlLength: payload.bpmn_xml?.length,
+            tenantId: payload.tenant_id
+        });
+
         try {
             if (workflowId) {
                 // UPDATE existing workflow
-                const { error } = await (supabase
+                const { data, error } = await (supabase
                     .from('workflows') as any)
                     .update(payload)
-                    .eq('id', workflowId);
+                    .eq('id', workflowId)
+                    .select();
 
                 if (error) throw error;
-                console.log("Workflow updated successfully");
+                console.log("Workflow updated successfully:", data);
                 get().showNotification("Workflow saved successfully", 'success');
             } else {
                 // INSERT new workflow
@@ -205,6 +231,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
                 workflowName: workflow.name,
                 workflowStatus: status,
                 hierarchyLevel: workflow.hierarchy_level || 4,
+                bpmnXml: workflow.bpmn_xml || null,
                 nodes: (workflow.nodes as any) || [],
                 edges: (workflow.edges as any) || [],
             });
@@ -218,6 +245,7 @@ export const useStore = create<WorkflowState>((set, get) => ({
             workflowName: 'Untitled Workflow',
             workflowStatus: 'Draft',
             hierarchyLevel: 4,
+            bpmnXml: null,
             nodes: [],
             edges: [],
             selectedNode: null

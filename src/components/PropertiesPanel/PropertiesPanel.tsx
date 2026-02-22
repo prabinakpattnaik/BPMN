@@ -4,19 +4,26 @@ import { useStore } from '../../lib/store';
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CommentsPanel } from '../CommentsPanel/CommentsPanel';
+import { useBpmn } from '../Canvas/BpmnContext';
 
 const tabs = ["Properties", "Comments"];
 
 export const PropertiesPanel = ({ canAddComments = false, readOnly = false }: { canAddComments?: boolean, readOnly?: boolean }) => {
     const { t } = useTranslation();
-    const { selectedNode, setSelectedNode, updateNodeData, deleteNode, workflowId } = useStore();
+    const { selectedNode, setSelectedNode, workflowId } = useStore();
     const [label, setLabel] = useState('');
     const [description, setDescription] = useState('');
     const [activeTab, setActiveTab] = useState('Properties');
+    const modeler = useBpmn();
 
     const handleDelete = () => {
-        if (selectedNode && !readOnly) {
-            deleteNode(selectedNode.id);
+        if (selectedNode && !readOnly && modeler) {
+            const modeling = modeler.get('modeling');
+            const element = modeler.get('elementRegistry').get(selectedNode.id);
+            if (element) {
+                modeling.removeShape(element);
+                setSelectedNode(null);
+            }
         }
     };
 
@@ -29,20 +36,26 @@ export const PropertiesPanel = ({ canAddComments = false, readOnly = false }: { 
     }, [selectedNode]);
 
     const handleLabelChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (readOnly) return;
+        if (readOnly || !modeler || !selectedNode) return;
         const newLabel = e.target.value;
         setLabel(newLabel);
-        if (selectedNode) {
-            updateNodeData(selectedNode.id, { label: newLabel });
+
+        const modeling = modeler.get('modeling');
+        const element = modeler.get('elementRegistry').get(selectedNode.id);
+        if (element) {
+            modeling.updateLabel(element, newLabel);
         }
     };
 
     const handleDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-        if (readOnly) return;
+        if (readOnly || !modeler || !selectedNode) return;
         const newDesc = e.target.value;
         setDescription(newDesc);
-        if (selectedNode) {
-            updateNodeData(selectedNode.id, { description: newDesc });
+
+        const modeling = modeler.get('modeling');
+        const element = modeler.get('elementRegistry').get(selectedNode.id);
+        if (element) {
+            modeling.updateProperties(element, { description: newDesc });
         }
     };
 
