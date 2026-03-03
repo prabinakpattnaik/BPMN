@@ -28,26 +28,32 @@ export const Layout = ({ children }: LayoutProps) => {
             if (!user) return;
 
             // 1. Get Tenant ID from Profile
-            const { data: profile } = await supabase
+            const { data: profileData } = await supabase
                 .from('profiles')
-                .select('tenant_id')
+                .select('tenant_id, role')
                 .eq('id', user.id)
                 .single();
 
             // Cast profile to avoid 'never' type issue if inference fails
-            const tenantIdFromProfile = (profile as { tenant_id: string | null } | null)?.tenant_id;
+            const profile = profileData as { tenant_id: string | null; role: string | null } | null;
+            const tenantIdFromProfile = profile?.tenant_id;
 
             if (tenantIdFromProfile) {
                 // Set tenant in store
                 useStore.setState({ tenantId: tenantIdFromProfile });
-
-                // Try to find an existing workflow
-                const { data: workflows } = await supabase
+                const currentRole = (profile?.role || 'Guest').toLowerCase();
+                const currentIsViewer = currentRole === 'viewer';
+                let query = supabase
                     .from('workflows')
                     .select('id')
                     .eq('tenant_id', tenantIdFromProfile)
                     .order('updated_at', { ascending: false })
                     .limit(1);
+                if (currentIsViewer) {
+                    query = query.eq('status', 'Published').eq('is_published', true);
+                }
+                // Try to find an existing workflow
+                const { data: workflows } = await query
 
                 const existingWorkflows = workflows as any[];
 
@@ -60,7 +66,7 @@ export const Layout = ({ children }: LayoutProps) => {
         if (user && !tenantId) {
             initWorkflow();
         }
-    }, [user, tenantId, loadWorkflow]);
+    }, [user, tenantId, profile, loadWorkflow]);
 
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-gray-50 text-gray-900">

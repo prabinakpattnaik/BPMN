@@ -31,7 +31,7 @@ export const MyWorkflow = () => {
     const [allAvailableWorkflows, setAllAvailableWorkflows] = useState<any[]>([]);
 
     // Role Checks (Case-Insensitive)
-    const role = (profile?.role || 'Viewer').toLowerCase();
+    const role = (profile?.role || 'Guest').toLowerCase();
     const isSuperAdmin = role === 'super admin' || role === 'super_admin';
     const isAdmin = role === 'admin' || isSuperAdmin;
     const isOwner = role === 'owner' || role === 'tenant';
@@ -94,26 +94,33 @@ export const MyWorkflow = () => {
                 return;
             }
 
-            // 1. Initial Content Load for Non-Viewers (Focus on latest or assigned)
-            if (!isViewer) {
-                let query = supabase
-                    .from('workflows')
-                    .select('id, is_published, status, hierarchy_level')
-                    .eq('tenant_id', currentTenantId)
-                    .order('updated_at', { ascending: false })
-                    .limit(1);
+            // 1. Initial Content Load (Focus on latest or assigned)
+            let query = supabase
+                .from('workflows')
+                .select('id, is_published, status, hierarchy_level')
+                .eq('tenant_id', currentTenantId)
+                .order('updated_at', { ascending: false })
+                .limit(1);
 
-                const { data, error } = await query;
-                if (error) throw error;
-                const workflows = data as any[];
+            // Viewers can ONLY see published ones
+            const currentRole = (profile?.role || 'Guest').toLowerCase();
+            const currentIsViewer = currentRole === 'viewer';
 
-                if (workflows && workflows.length > 0) {
-                    await loadWorkflow(workflows[0].id);
-                } else {
-                    resetWorkflow();
+            if (currentIsViewer) {
+                query = query.eq('status', 'Published').eq('is_published', true);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            const workflows = data as any[];
+
+            if (workflows && workflows.length > 0) {
+                const wf = workflows[0];
+                await loadWorkflow(wf.id);
+                if (wf.hierarchy_level) {
+                    setSelectedLevel(wf.hierarchy_level);
                 }
             } else {
-                // Viewers start clean (must select a process)
                 resetWorkflow();
             }
 
@@ -131,7 +138,7 @@ export const MyWorkflow = () => {
 
                 // Viewers ONLY see published ones in navigator
                 if (isViewer) {
-                    sidebarQuery = sidebarQuery.eq('status', 'Published');
+                    sidebarQuery = sidebarQuery.eq('status', 'Published').eq('is_published', true);
                 }
 
                 // Analysts used to only see their own, but now they see all
