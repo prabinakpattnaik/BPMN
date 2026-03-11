@@ -13,6 +13,8 @@ import { PendingAssignment } from './pages/PendingAssignment';
 import { OwnerDashboard } from './pages/Tenant/OwnerDashboard';
 import { OwnerUsersManagement } from './pages/Tenant/OwnerUsersManagement';
 import Dashboard from './pages/Admin/Dashboard';
+// import SvgSimulation from './pages/SVGProcessSample';
+import SvgSimulation from './pages/SVGProcessDynamic';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { user, profile, loading, needsPasswordReset } = useAuth();
@@ -114,6 +116,16 @@ function App() {
               <ProtectedRoute allowedRoles={['admin']}>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/newSVGFlow"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Layout>
+                  <SvgSimulation />
                 </Layout>
               </ProtectedRoute>
             }

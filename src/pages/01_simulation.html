@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG with Grid and Hover Coordinates</title>
+    <style>
+        #coordinates {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgb(154, 73, 73);
+            padding: 5px;
+            display: none;
+        }
+
+        .text {
+            font-family: sans-serif, 'Segoe UI', Arial;
+            font-size: 12px;
+            fill: black;
+        }
+              .stext {
+            font-family: sans-serif, 'Segoe UI', Arial;
+            font-size: 10px;
+            fill: black;
+        }
+
+        .AUTO {
+            fill: #D5F5E3;
+        }
+
+        .MANL {
+            fill: #FADBD8;
+        }
+
+        
+        .line {
+            stroke: black;
+            stroke-width: 1.5;
+            fill: none;
+        }
+    </style>
+</head>
+
+<body>
+    <svg id="mySvg" width="5200" height="1200"
+        style="border:1px solid rgb(122, 120, 120); filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.1));">
+        
+        <defs>
+            <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" />
+            
+            </pattern>
+            <symbol id="HELP_2" viewbox="0 0 24 24">
+                <rect x="4" y="4" width="16" height="16" fill="darkblue" stroke="white" stroke-width="1.5" rx="8px" />
+                <text X="9" Y="16" font-size="12" font-family="sans-serif" stroke="white" stroke-width="0.5">? </text>
+            </symbol>
+            <symbol id="EVNT_1" viewbox="0 0 50 50">
+                <circle cx="25" cy="25" stroke="black" stroke-width="2" fill="none" r="22" />
+                <text class="text" x="9" y="30" font-weight="bold" class="text">STOP</text>
+            </symbol>
+            <symbol id="SVNT_1" viewbox="0 0 50 50">
+                <circle cx="25" cy="25" stroke="black" stroke-width="1" fill="none" r="22" />
+                <text class="text" x="6" y="30" class="text">START</text>
+            </symbol>
+            <symbol id="TASK_2" viewbox="0 0 120 64">
+                <rect x="0" y="0" rx="2" width="120" height="64" />
+                <rect x="105" y="0" rx="2" fill="black" opacity="0.05" width="15" height="64" />
+            </symbol>
+            
+            <symbol id="ex" viewBox="0 0 100 100">
+                <!-- Diamond -->
+                <polygon points="50,8 92,50 50,92 8,50" fill="white" stroke="currentColor" stroke-width="4"
+                    stroke-linejoin="round" />
+            
+                <!-- X marker -->
+                <path d="M38 38 L62 62 M62 38 L38 62" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            </symbol>
+            
+            
+            <symbol id="ix" viewBox="0 0 100 100">
+                <!-- Diamond -->
+                <polygon points="50,8 92,50 50,92 8,50" fill="white" stroke="currentColor" stroke-width="4"
+                    stroke-linejoin="round" />
+            
+                <!-- O marker -->
+                <circle cx="50" cy="50" r="12" fill="none" stroke="currentColor" stroke-width="4" />
+            </symbol>
+            
+            <symbol id="OPTM" viewbox="0 0 2 20">
+                <title>green</title>
+                <path d="m0 3 v20" stroke="green" stroke-width="4" />
+            </symbol>
+                        <symbol id="SOPTM" viewbox="0 0 2 20">
+                <title>green</title>
+                <path d="m0 3 v20" stroke="red" stroke-width="4" />
+            </symbol>
+            
+            <symbol id="URL_2" viewbox="0 0 24 24">
+                <path d="M14 4 H21 V10 H19 V6.41 L10.41 15 L9 13.59 L17.59 5 H14 Z   M5 4 H11 V7 H7 V17 H17 V13 H19 V19 H5 Z"
+                    fill="black" />
+                <rect x="0" y="0" width="20" height="20" fill="black" opacity="0.01" />
+            </symbol>
+            
+            
+            </defs>
+            <!-- Use the grid pattern as a background -->
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            
+            
+            <g transform="translate(30,295)">
+                <use class="MANL" href="#SVNT_1" x="0" y="0" width="50" height="50" />
+            </g>
+            
+            
+            <g transform="translate(115,290)">
+                <use class="MANL" href="#TASK_2" x="5" y="0" width="120" height="64" />
+                <a href="https://icai.org" target="_blank" rel="noopener noreferrer" class="link">
+                    <use class="URL_2" href="#URL_2" x="110" y="0" width="15" height="15">
+                        <title>PPP-010: Make payment run</title>
+                    </use>
+                </a>
+                <use class="URL_2" href="#URL_2" x="110" y="20" width="15" height="15" />
+                <use class="URL_2" href="#URL_2" x="110" y="40" width="15" height="15" />
+                <use class="SOPTM" href="#SOPTM" x="4" y="0" width="4" height="20" />
+            
+                <use class="HELP_2" href="#HELP_2" x="0" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+                <use class="HELP_2" href="#HELP_2" x="15" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+            
+                <text x="10" y="0" class="text">
+                    <tspan Class="toptext" x="10" dy="-.5em"> Top text </tspan>
+                    <tspan Class="text" x="10" dy="2.2em"> Enter Payment </tspan>
+                    <tspan Class="text" x="10" dy="1.2em">Parameter along</tspan>
+                    <tspan Class="text" x="10" dy="1.2em">with comp code</tspan>
+                    <tspan Class="bottomtext" x="10" dy="3.0em">Bottom text 1</tspan>
+            
+                </text>
+            </g>
+            
+            <g transform="translate(280,295)">
+                <use class="ix" href="#ix" x="0" y="0" width="50" height="50" />
+                <text x="0" y="30" class="stext">
+            
+                    <tspan Class="stext" x="10" dy="2.2em"> payment </tspan>
+                    <tspan Class="stext" x="10" dy="1.2em">Method?</tspan>
+            
+            
+            
+                </text>
+            </g>
+            
+            <g transform="translate(365,290)">
+                <use class="AUTO" href="#TASK_2" x="5" y="0" width="120" height="64" />
+                <use class="OPTM" href="#OPTM" x="4" y="0" width="4" height="20" />
+                <a href="https://icai.org" target="_blank" rel="noopener noreferrer" class="link">
+                    <use class="URL_2" href="#URL_2" x="110" y="0" width="15" height="15">
+                        <title>PPP-010: Make payment run</title>
+                    </use>
+                </a>
+                <use class="BATCH_2" href="#BATCH_2" x="110" y="20" width="15" height="15" />
+                <use class="ROBO_2" href="#ROBO_2" x="110" y="40" width="15" height="15" />
+                <use class="HELP_2" href="#HELP_2" x="0" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+                <use class="HELP_2" href="#HELP_2" x="15" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+            
+                <text x="10" y="0" class="text">
+                    <tspan Class="toptext" x="10" dy="-.5em"> Top text </tspan>
+                    <tspan Class="text" x="10" dy="2.2em"> Enter Payment </tspan>
+                    <tspan Class="text" x="10" dy="1.2em">Parameter along</tspan>
+                    <tspan Class="text" x="10" dy="1.2em">with comp code</tspan>
+                    <tspan Class="bottomtext" x="10" dy="3.0em">Bottom text 1</tspan>
+            
+                </text>
+            </g>
+            
+            <g transform="translate(365,140)">
+                <use class="MANL" href="#TASK_2" x="5" y="0" width="120" height="64" />
+                <use class="OPTM" href="#OPTM" x="4" y="0" width="4" height="20" />
+                <a href="https://icai.org" target="_blank" rel="noopener noreferrer" class="link">
+                    <use class="URL_2" href="#URL_2" x="110" y="0" width="15" height="15">
+                        <title>PPP-010: Make payment run</title>
+                    </use>
+                </a>
+                <use class="URL_2" href="#URL_2" x="110" y="20" width="15" height="15" />
+                <use class="URL_2" href="#URL_2" x="110" y="40" width="15" height="15" />
+                <use class="HELP_2" href="#HELP_2" x="0" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+                <use class="HELP_2" href="#HELP_2" x="15" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+            
+                <text x="10" y="0" class="text">
+                    <tspan Class="toptext" x="10" dy="-.5em"> Top text </tspan>
+                    <tspan Class="text" x="10" dy="2.2em"> Enter Payment </tspan>
+                    <tspan Class="text" x="10" dy="1.2em">Parameter along</tspan>
+                    <tspan Class="text" x="10" dy="1.2em">with comp code</tspan>
+                    <tspan Class="bottomtext" x="10" dy="3.0em">Bottom text 1</tspan>
+            
+                </text>
+            </g>
+            
+            
+            <g transform="translate(365,440)">
+                <use class="AUTO" href="#TASK_2" x="5" y="0" width="120" height="64" />
+                <use class="OPTM" href="#OPTM" x="4" y="0" width="4" height="20" />
+                <a href="https://icai.org" target="_blank" rel="noopener noreferrer" class="link">
+                    <use class="URL_2" href="#URL_2" x="110" y="0" width="15" height="15">
+                        <title>PPP-010: Make payment run</title>
+                    </use>
+                </a>
+                <use class="URL_2" href="#URL_2" x="110" y="20" width="15" height="15" />
+                <use class="URL_2" href="#URL_2" x="110" y="40" width="15" height="15" />
+                <use class="HELP_2" href="#HELP_2" x="0" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+                <use class="HELP_2" href="#HELP_2" x="15" y="54" width="15" height="18">
+                    <title>Need help, click here</title>
+                </use>
+            
+                <text x="10" y="0" class="text">
+                    <tspan Class="toptext" x="10" dy="-.5em"> Top text </tspan>
+                    <tspan Class="text" x="10" dy="2.2em"> Enter Payment </tspan>
+                    <tspan Class="text" x="10" dy="1.2em">Parameter along</tspan>
+                    <tspan Class="text" x="10" dy="1.2em">with comp code</tspan>
+                    <tspan Class="bottomtext" x="10" dy="3.0em">Bottom text 1</tspan>
+            
+                </text>
+            </g>
+            
+            <g transform="translate(530,295)">
+                <use class="MANL" href="#EVNT_1" x="0" y="0" width="50" height="50" />
+            </g>
+            <path class="line" d="M80 320 h35 v-2 l2 2 l-2 2 v-2" />
+            <path class="line" d="M240 320 h35 v-2 l2 2 l-2 2 v-2" />
+            <path class="line" d="M330 320 h15 v-150 h20 v-2 l2 2 l-2 2 v-2" />
+            <path class="line" d="M330 320 h35  v-2 l2 2 l-2 2 v-2" />
+            <path class="line" d="M330 320 h20 v150 h15 v-2 l2 2 l-2 2 v-2" />
+              <path class="line" d="M490 320 h35  v-2 l2 2 l-2 2 v-2" />
+                <path class="line" d="M490 170 h65 v120  h2 l-2 2 l-2 -2 h2" />
+                <path class="line" d="M490 475 h65 v-120  h2 l-2 -2 l-2 2 h2" />
+        </svg>
+            
+            
+            
+            <!-- Coordinates Display -->
+            <div id="coordinates"></div>
+            
+            <script>
+
+
+                document.addEventListener("DOMContentLoaded", () => {
+                    const svg = document.getElementById('mySvg');
+                    const coordinatesDisplay = document.getElementById('coordinates');
+
+                    svg.addEventListener('mousemove', (event) => {
+                        const point = svg.createSVGPoint();
+                        point.x = event.clientX;
+                        point.y = event.clientY;
+
+                        const svgPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+
+                        coordinatesDisplay.style.left = (event.pageX + 10) + 'px';
+                        coordinatesDisplay.style.top = (event.pageY + 10) + 'px';
+                        coordinatesDisplay.style.display = 'block';
+                        coordinatesDisplay.innerText = `x: ${svgPoint.x.toFixed(0)}, y: ${svgPoint.y.toFixed(0)}`;
+                    });
+
+                    svg.addEventListener('mouseleave', () => {
+                        coordinatesDisplay.style.display = 'none';
+                    });
+                });
+
+            </script>
+            </body>
+            
+            </html>
