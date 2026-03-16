@@ -1,34 +1,18 @@
-import { Canvas } from '../../components/Canvas/Canvas';
-import { useStore } from '../../lib/store';
-import { useAuth } from '../../hooks/useAuth';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Shield, Clock, Layout as LayoutIcon, Send, CheckCircle, X, Eye } from 'lucide-react';
-import { CustomSelect } from '../../components/CustomSelect/CustomSelect';
-
+import { useAuth } from '../../hooks/useAuth';
+import { Layout as LayoutIcon, Eye, Search, ArrowLeft, X } from 'lucide-react';
+import SVGProcessDynamic from '../SVGProcessDynamic';
 
 export const MyWorkflow = () => {
-    const { user, profile, loading: authLoading, refreshProfile } = useAuth();
-    const {
-        loadWorkflow,
-        saveWorkflow,
-        workflowName,
-        workflowStatus,
-        hierarchyLevel,
-        resetWorkflow,
-        workflowId,
-        showNotification
-    } = useStore();
+    const { profile, loading: authLoading } = useAuth();
     const [loading, setLoading] = useState(true);
-    const [isInitializing, setIsInitializing] = useState(true);
-    const [showReviewerModal, setShowReviewerModal] = useState(false);
-    const [reviewers, setReviewers] = useState<any[]>([]);
-    const [selectedReviewer, setSelectedReviewer] = useState('');
-    const fetchInProgress = useRef(false);
-
-    // Sidebar & Hierarchy States
     const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
-    const [allAvailableWorkflows, setAllAvailableWorkflows] = useState<any[]>([]);
+    const [tableData, setTableData] = useState<any[]>([]);
+
+    // For rendering the SVG
+    const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
     // Role Checks (Case-Insensitive)
     const role = (profile?.role || 'Guest').toLowerCase();
@@ -36,581 +20,227 @@ export const MyWorkflow = () => {
     const isAdmin = role === 'admin' || isSuperAdmin;
     const isOwner = role === 'owner' || role === 'tenant';
     const isAnalyst = role === 'analyst';
-    const isReviewer = role === 'reviewer';
-    const isViewer = role === 'viewer';
-    const isCreator = isAnalyst || isOwner || isAdmin;
 
-    const [isCreating, setIsCreating] = useState(false);
-    const [showNamingModal, setShowNamingModal] = useState(false);
-    const [newName, setNewName] = useState('');
-    const [newLevel, setNewLevel] = useState(4);
+    const userAccessLevel = (isOwner || isAdmin || isAnalyst) ? 0 : (profile?.hierarchy_level ?? 4);
 
-    const showHierarchySidebar = isOwner || isAdmin || isViewer || isAnalyst;
-
-
-    // Permission Logic
-    // Edit: Analyst (Own), Admin/Owner (All). Status: Draft, Rejected.
-    const canEdit = (isAnalyst || isOwner || isAdmin) && (workflowStatus === 'Draft' || workflowStatus === 'Rejected');
-
-    // Review: Reviewer (Assigned), Admin/Owner (All). Status: Under Review.
-    const canReview = (isReviewer || isOwner || isAdmin) && workflowStatus === 'Under Review';
-
-    // Publish: Admin/Owner (All). Status: Approved.
-    const canPublish = (isOwner || isAdmin) && workflowStatus === 'Approved';
-
-    // Comments: Admin/Owner/Reviewer/Analyst can add/view comments. Viewer cannot.
-    const canAddComments = !isViewer;
-
-    const fetchReviewers = async () => {
-        if (!profile?.tenant_id) return;
-        const { data } = await supabase
-            .from('profiles')
-            .select('id, full_name, role')
-            .eq('tenant_id', profile.tenant_id)
-            .eq('role', 'Reviewer');
-        if (data) setReviewers(data);
-    };
-
-    const fetchUserWorkflow = async () => {
-        if (fetchInProgress.current || authLoading) return;
-
-        if (!user) {
-            setLoading(false);
-            setIsInitializing(false);
-            return;
+    useEffect(() => {
+        if (!authLoading && profile && selectedLevel === null) {
+            setSelectedLevel(userAccessLevel);
         }
+    }, [authLoading, profile, selectedLevel, userAccessLevel]);
 
-        fetchInProgress.current = true;
-        setIsInitializing(true);
-
+    const fetchLevelData = async (level: number) => {
+        setLoading(true);
+        setSelectedProcessId(null);
+        setSelectedClientId(null);
         try {
-            if (!profile?.tenant_id) {
-                await refreshProfile();
-            }
+            const tableName = `l${level}_process`;
+            const { data, error } = await supabase
+                .from(tableName)
+                .select('*')
+                .eq('client_id', profile?.tenant_id || "")
+                .order(`l${level}_process_id`, { ascending: true });
 
-            const currentTenantId = profile?.tenant_id;
-            if (!currentTenantId) {
-                setLoading(false);
-                return;
-            }
-
-            // 1. Initial Content Load (Focus on latest or assigned)
-            let query = supabase
-                .from('workflows')
-                .select('id, is_published, status, hierarchy_level')
-                .eq('tenant_id', currentTenantId)
-                .order('updated_at', { ascending: false })
-                .limit(1);
-
-            // Viewers can ONLY see published ones
-            const currentRole = (profile?.role || 'Guest').toLowerCase();
-            const currentIsViewer = currentRole === 'viewer';
-
-            if (currentIsViewer) {
-                query = query.eq('status', 'Published').eq('is_published', true);
-            }
-
-            const { data, error } = await query;
             if (error) throw error;
-            const workflows = data as any[];
-
-            if (workflows && workflows.length > 0) {
-                const wf = workflows[0];
-                await loadWorkflow(wf.id);
-                if (wf.hierarchy_level) {
-                    setSelectedLevel(wf.hierarchy_level);
-                }
-            } else {
-                resetWorkflow();
-            }
-
-            // 2. Fetch Hierarchy Navigator Entries (Owner, Admin, Viewer)
-            if (showHierarchySidebar) {
-                const userAccessLevel = (isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4);
-
-                let sidebarQuery = supabase
-                    .from('workflows')
-                    .select('id, name, hierarchy_level, status, updated_at')
-                    .eq('tenant_id', currentTenantId)
-                    .gte('hierarchy_level', userAccessLevel)
-                    .order('hierarchy_level', { ascending: true })
-                    .order('name', { ascending: true });
-
-                // Viewers ONLY see published ones in navigator
-                if (isViewer) {
-                    sidebarQuery = sidebarQuery.eq('status', 'Published').eq('is_published', true);
-                }
-
-                // Analysts used to only see their own, but now they see all
-
-                const { data: sidebarData, error: sidebarError } = await sidebarQuery;
-                if (sidebarError) throw sidebarError;
-
-                const allWfs = (sidebarData as any[]) || [];
-                setAllAvailableWorkflows(allWfs);
-
-                // Default Navigator highlighted level
-                const topLevelWf = allWfs.find(w => w.hierarchy_level === userAccessLevel);
-                if (topLevelWf) {
-                    setSelectedLevel(userAccessLevel);
-                } else if (allWfs.length > 0) {
-                    setSelectedLevel(allWfs[0].hierarchy_level);
-                } else {
-                    setSelectedLevel(userAccessLevel);
-                }
-            }
-
-
-
-
+            setTableData(data || []);
         } catch (err) {
-            console.error('Error loading workflow:', err);
-        } finally {
-            setLoading(false);
-            setIsInitializing(false);
-            fetchInProgress.current = false;
-        }
-    };
-
-    const handleHierarchyChange = async (level: number) => {
-        if (!workflowId) return;
-        try {
-            await saveWorkflow(undefined, undefined, undefined, level);
-            useStore.setState({ hierarchyLevel: level });
-            showNotification(`Hierarchy Level updated to L${level}`, 'success');
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleSaveDraft = async () => {
-        if (!workflowId && !isCreating) return;
-        setLoading(true);
-        try {
-            await saveWorkflow('Draft', false);
-            useStore.setState({ workflowStatus: 'Draft' });
-            setIsCreating(false); // Reset creating state after success
-            showNotification('Workflow saved as Draft', 'success');
-            // Refresh the workflow list to see the new entry
-            fetchUserWorkflow();
-        } catch (err) {
-            console.error('Save failed:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmitForReview = async () => {
-        if (!workflowId && !isCreating) return;
-        setLoading(true);
-        try {
-            await saveWorkflow('Under Review', false, selectedReviewer);
-            useStore.setState({ workflowStatus: 'Under Review' });
-            setIsCreating(false);
-            setShowReviewerModal(false);
-            showNotification('Workflow submitted for review', 'success');
-            fetchUserWorkflow();
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleApprove = async () => {
-        if (!workflowId) return;
-        setLoading(true);
-        try {
-            await saveWorkflow('Approved', false);
-            useStore.setState({ workflowStatus: 'Approved' });
-            showNotification('Workflow Approved! Ready for Owner to publish.', 'success');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleReject = async () => {
-        if (!workflowId) return;
-        setLoading(true);
-        try {
-            await saveWorkflow('Rejected', false);
-            useStore.setState({ workflowStatus: 'Rejected' });
-            showNotification('Workflow Rejected. Sent back to Analyst.', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePublish = async () => {
-        if (!workflowId) return;
-        setLoading(true);
-        try {
-            await saveWorkflow('Published', true);
-            useStore.setState({ workflowStatus: 'Published' });
-            showNotification('Workflow published to Viewers successfully!', 'success');
+            console.error(`Error fetching L${level} data:`, err);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (user?.id && profile?.tenant_id) {
-            fetchUserWorkflow();
-            if (isAnalyst) fetchReviewers();
+        if (selectedLevel !== null) {
+            fetchLevelData(selectedLevel);
         }
-    }, [user?.id, profile?.tenant_id, authLoading]);
+    }, [selectedLevel]);
 
-    if (loading || isInitializing || authLoading) {
+    if (authLoading) {
         return (
             <div className="h-full w-full flex flex-col items-center justify-center bg-gray-50 gap-4">
                 <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-gray-500 font-medium">Retrieving your organization's workflow...</span>
+                <span className="text-gray-500 font-medium">Authenticating...</span>
             </div>
         );
     }
 
-    const showCanvas = !!workflowId || (isCreating && isCreator);
+    const renderTable = () => {
+        if (loading) return <div className="p-12 text-center text-gray-500">Loading process database...</div>;
+        if (tableData.length === 0) return <div className="p-12 text-center text-gray-500 font-medium">No processes found for this level.</div>;
+
+        if (selectedLevel === 4) {
+            return (
+                <div className="overflow-x-auto w-full h-full custom-scrollbar">
+                    <table className="w-full text-left text-sm text-gray-600 border-collapse">
+                        <thead className="bg-gray-50 text-gray-700 sticky top-0 z-10 text-xs shadow-sm">
+                            <tr>
+                                <th className="p-4 border-b">L4 Process ID</th>
+                                <th className="p-4 border-b">Description</th>
+                                <th className="p-4 border-b">L3 Process</th>
+                                <th className="p-4 border-b">L2 Process</th>
+                                <th className="p-4 border-b">Business Owner</th>
+                                <th className="p-4 border-b">IT Owner</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {tableData.map(row => (
+                                <tr key={row.l4_process_id}
+                                    onClick={() => {
+                                        setSelectedProcessId(row.l4_process_id);
+                                        setSelectedClientId(row.client_id);
+                                    }}
+                                    className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                    <td className="p-4 font-bold text-blue-600 group-hover:underline flex items-center gap-2">
+                                        <Eye size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400" />
+                                        {row.l4_process_id}
+                                    </td>
+                                    <td className="p-4 text-gray-900 font-medium">{row.l4_description}</td>
+                                    <td className="p-4">{row.l3_description || `[ID: ${row.l3_process_id}]`}</td>
+                                    <td className="p-4">{row.l2_description || `[ID: ${row.l2_process_id}]`}</td>
+                                    <td className="p-4 font-medium">{row.business_owner_role}</td>
+                                    <td className="p-4 font-medium">{row.it_owner_role}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        }
+
+        // Generic table for L0-L3
+        const idKey = `l${selectedLevel}_process_id`;
+        return (
+            <div className="overflow-x-auto w-full h-full custom-scrollbar">
+                <table className="w-full text-left text-sm text-gray-600 border-collapse">
+                    <thead className="bg-gray-50 text-gray-700 sticky top-0 z-10 text-xs uppercase tracking-wider shadow-sm">
+                        <tr>
+                            <th className="p-4 border-b">Process ID</th>
+                            <th className="p-4 border-b">Description / English Text</th>
+                            <th className="p-4 border-b">Client ID</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {tableData.map(row => (
+                            <tr key={row[idKey]} className="hover:bg-gray-50 transition-colors">
+                                <td className="p-4 font-bold text-gray-900">{row[idKey]}</td>
+                                <td className="p-4 text-gray-800 font-medium">{row.text_in_english || row.description || 'N/A'}</td>
+                                <td className="p-4">
+                                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold border border-gray-200">
+                                        Client: {row.client_id}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
 
     return (
         <div className="flex flex-col h-full w-full bg-white overflow-hidden relative">
-            {showCanvas ? <header className="h-16 border-b border-gray-100 flex items-center px-8 justify-between bg-white shadow-sm z-10">
-                <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                        <LayoutIcon size={20} />
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-gray-900 text-lg leading-tight">{workflowName || 'Assigned Workflow'}</h1>
-                        <div className="flex items-center gap-3 mt-0.5">
-                            {/* Hierarchy Level */}
-                            {canEdit ? (
-                                <CustomSelect
-                                    value={hierarchyLevel}
-                                    onChange={(val) => handleHierarchyChange(Number(val))}
-                                    options={[
-                                        { value: 1, label: 'L1', icon: <Eye size={12} /> },
-                                        { value: 2, label: 'L2', icon: <Eye size={12} /> },
-                                        { value: 3, label: 'L3', icon: <Eye size={12} /> },
-                                        { value: 4, label: 'L4', icon: <Eye size={12} /> },
-                                    ]}
-                                    className="w-20"
-                                />
-                            ) : (
-
-                                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border bg-purple-50 text-purple-700 border-purple-200" title="Minimum Viewer Level">
-                                    L{hierarchyLevel}
-                                </span>
-                            )}
-                            <span className={`flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${canEdit ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                                <Shield size={10} />
-                                {role} Mode
-                            </span>
-                            <span className={`flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-md border text-white
-                                ${workflowStatus === 'Published' ? 'bg-green-500 border-green-600' :
-                                    workflowStatus === 'Approved' ? 'bg-emerald-500 border-emerald-600' :
-                                        workflowStatus === 'Rejected' ? 'bg-red-500 border-red-600' :
-                                            workflowStatus === 'Under Review' ? 'bg-orange-400 border-orange-500' :
-                                                'bg-gray-400 border-gray-500'}`}>
-                                {workflowStatus}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    {/* Analyst Actions */}
-                    {canEdit && (
-                        <>
-                            <button
-                                onClick={handleSaveDraft}
-                                disabled={loading}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-50 transition shadow-sm"
-                            >
-                                <LayoutIcon size={16} />
-                                Save Draft
-                            </button>
-                            <button
-                                onClick={() => setShowReviewerModal(true)}
-                                disabled={loading}
-                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100"
-                            >
-                                <Send size={16} />
-                                Submit for Review
-                            </button>
-                        </>
-                    )}
-
-                    {/* Reviewer Actions */}
-                    {isReviewer && (
-                        <div className="flex items-center gap-2">
-                            {canReview ? (
-                                <>
-                                    <button
-                                        onClick={handleReject}
-                                        className="flex items-center gap-2 bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50 transition"
-                                    >
-                                        <X size={16} />
-                                        Reject
-                                    </button>
-                                    <button
-                                        onClick={handleApprove}
-                                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-lg shadow-green-100"
-                                    >
-                                        <CheckCircle size={16} />
-                                        Approve
-                                    </button>
-                                </>
-                            ) : (
-                                <span className="text-xs text-gray-400 font-medium italic pr-2">
-                                    {workflowStatus === 'Draft' ? "Waiting for submission..." :
-                                        workflowStatus === 'Approved' ? "You Approved this workflow." :
-                                            workflowStatus === 'Rejected' ? "You Rejected this workflow." :
-                                                "Review Complete"}
-                                </span>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Owner/Admin Actions */}
-                    {(isOwner || role === 'Admin') && (
-                        <div className="flex items-center gap-2">
-                            {canPublish ? (
-                                <button
-                                    onClick={handlePublish}
-                                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
-                                >
-                                    <Send size={16} />
-                                    Publish
-                                </button>
-                            ) : (
-                                <span className="text-xs text-gray-400 font-medium italic pr-2">
-                                    {workflowStatus === 'Published' ? "Published Live" : "Waiting for Approval..."}
-                                </span>
-                            )}
-                        </div>
-                    )}
-
-                    <span className="flex items-center gap-2 text-xs text-gray-400 font-medium bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                        <Clock size={14} />
-                        {canEdit ? 'Auto-syncing' : 'Read Only'}
-                    </span>
-                </div>
-            </header> : null}
 
             <div className="flex-1 relative overflow-hidden flex">
                 {/* Process Hierarchy Sidebar (Navigator) */}
-                {showHierarchySidebar && (
-                    <aside className="w-72 bg-gray-50 border-r border-gray-100 flex flex-col z-20 shadow-sm">
-                        <div className="p-6 border-b border-gray-100 bg-white">
-                            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                                <LayoutIcon size={16} className="text-blue-600" />
-                                {isAnalyst ? "Design Hub" : "Process Navigator"}
-                            </h2>
-                            <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
-                                {isAnalyst ? "Manager View" : `L${(isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4)} Access Cleared`}
-                            </p>
-                        </div>
+                <aside className="w-72 bg-gray-50 border-r border-gray-100 flex flex-col z-20 shadow-sm flex-shrink-0">
+                    <div className="p-6 border-b border-gray-100 bg-white">
+                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                            <LayoutIcon size={16} className="text-blue-600" />
+                            Access Levels
+                        </h2>
+                        <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
+                            L{userAccessLevel} Clearance Given
+                        </p>
+                    </div>
 
-                        {/* Level Selectors */}
-                        <div className="p-4 space-y-1 bg-white/50 border-b border-gray-100">
-                            {[1, 2, 3, 4].filter(l => l >= ((isOwner || isAdmin || isAnalyst) ? 1 : (profile?.hierarchy_level || 4))).map(level => {
+                    <div className="p-4 space-y-1 bg-white/50 border-b border-gray-100 flex-1">
+                        {[0, 1, 2, 3, 4].filter(l => l >= userAccessLevel).map(level => {
+                            const levelConfig = {
+                                0: { label: 'L0 Enterprise', text: 'text-gray-700', bg: 'bg-gray-50', active: 'bg-gray-200 border-gray-300 ring-4 ring-gray-50 shadow-sm' },
+                                1: { label: 'L1 Restricted', text: 'text-blue-700', bg: 'bg-blue-50', active: 'bg-blue-200 border-blue-300 ring-4 ring-blue-50 shadow-sm' },
+                                2: { label: 'L2 Confidential', text: 'text-green-700', bg: 'bg-green-50', active: 'bg-green-200 border-green-300 ring-4 ring-green-50 shadow-sm' },
+                                3: { label: 'L3 Internal', text: 'text-yellow-700', bg: 'bg-yellow-50', active: 'bg-yellow-200 border-yellow-300 ring-4 ring-yellow-50 shadow-sm' },
+                                4: { label: 'L4 Public', text: 'text-purple-700', bg: 'bg-purple-50', active: 'bg-purple-200 border-purple-300 ring-4 ring-purple-50 shadow-sm' }
+                            }[level as 0 | 1 | 2 | 3 | 4];
 
-                                const levelConfig = {
-                                    1: { label: 'L1 Restricted', text: 'text-blue-700', bg: 'bg-blue-50', active: 'bg-blue-200 border-blue-300 ring-4 ring-blue-50 shadow-sm' },
-                                    2: { label: 'L2 Confidential', text: 'text-green-700', bg: 'bg-green-50', active: 'bg-green-200 border-green-300 ring-4 ring-green-50 shadow-sm' },
-                                    3: { label: 'L3 Internal', text: 'text-yellow-700', bg: 'bg-yellow-50', active: 'bg-yellow-200 border-yellow-300 ring-4 ring-yellow-50 shadow-sm' },
-                                    4: { label: 'L4 Public', text: 'text-purple-700', bg: 'bg-purple-50', active: 'bg-purple-200 border-purple-300 ring-4 ring-purple-50 shadow-sm' }
-                                }[level as 1 | 2 | 3 | 4];
+                            const isLvlSelected = selectedLevel === level;
 
-
-                                const isLvlSelected = selectedLevel === level;
-                                const count = allAvailableWorkflows.filter(w => w.hierarchy_level === level).length;
-
-                                return (
-                                    <button
-                                        key={level}
-                                        onClick={() => {
-                                            setSelectedLevel(level);
-                                            // Just switch level view, don't auto-load first process
-                                            resetWorkflow();
-                                        }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-transparent transition-all duration-200 group ${isLvlSelected ? levelConfig.active + ' shadow-sm' : 'hover:bg-white hover:border-gray-100'}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`h-2 w-2 rounded-full ${isLvlSelected ? 'bg-current pulse' : 'bg-gray-200'} ${levelConfig.text}`} />
-                                            <span className={`text-xs font-bold uppercase tracking-wide ${isLvlSelected ? levelConfig.text : 'text-gray-500 group-hover:text-gray-700'}`}>
-                                                {levelConfig.label}
-                                            </span>
-                                        </div>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isLvlSelected ? 'bg-white/50' : 'bg-gray-100 text-gray-400'}`}>
-                                            {count}
+                            return (
+                                <button
+                                    key={level}
+                                    onClick={() => setSelectedLevel(level)}
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-transparent transition-all duration-200 group ${isLvlSelected && !selectedProcessId ? levelConfig.active + ' shadow-sm' : 'hover:bg-white hover:border-gray-100'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-2 w-2 rounded-full ${isLvlSelected && !selectedProcessId ? 'bg-current pulse' : 'bg-gray-300'} ${levelConfig.text}`} />
+                                        <span className={`text-sm font-bold tracking-wide ${isLvlSelected && !selectedProcessId ? levelConfig.text : 'text-gray-500 group-hover:text-gray-700'}`}>
+                                            {levelConfig.label}
                                         </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                    </div>
+                                    <Eye size={14} className={isLvlSelected && !selectedProcessId ? levelConfig.text : 'text-gray-300'} />
+                                </button>
+                            );
+                        })}
+                    </div>
+                </aside>
 
-                        {/* Process List for Level */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                            <div className="px-2 mb-2 flex items-center justify-between">
-                                <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Available Processes</span>
-                                {isAnalyst && (
-                                    <button
-                                        onClick={() => {
-                                            resetWorkflow();
-                                            setNewName('');
-                                            setNewLevel(selectedLevel || 4);
-                                            setShowNamingModal(true);
-                                        }}
-                                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md transition-colors"
-                                    >
-                                        + New Process
-                                    </button>
-                                )}
+                {/* Main Content Area */}
+                <div className="flex-1 bg-white relative flex flex-col overflow-hidden">
+                    <div className="p-8 h-full flex flex-col bg-slate-50">
+                        <div className="mb-6 flex justify-between items-end">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">L{selectedLevel} Process Database</h2>
+                                <p className="text-gray-500 mt-1">Found {tableData.length} records in Database.</p>
                             </div>
-                            {allAvailableWorkflows.filter(w => w.hierarchy_level === selectedLevel).length === 0 ? (
-                                <div className="p-4 text-center">
-                                    <p className="text-xs text-gray-400 italic">No processes at this level.</p>
+                            {selectedLevel === 4 && tableData.length > 0 && (
+                                <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg font-bold border border-blue-100 flex items-center gap-2 shadow-sm animate-pulse-slow">
+                                    <Search size={16} /> Select a process row below to open its dynamic diagram.
                                 </div>
-                            ) : (
-                                allAvailableWorkflows.filter(w => w.hierarchy_level === selectedLevel).map(wf => (
-                                    <button
-                                        key={wf.id}
-                                        onClick={() => {
-                                            setIsCreating(false);
-                                            loadWorkflow(wf.id);
-                                        }}
-                                        className={`w-full text-left p-3 rounded-xl border transition-all duration-200 group ${workflowId === wf.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'}`}
-                                    >
-                                        <h4 className={`text-xs font-bold truncate ${workflowId === wf.id ? 'text-white' : 'text-gray-900'}`}>{wf.name}</h4>
-                                        <div className={`flex items-center gap-2 mt-1 ${workflowId === wf.id ? 'text-blue-100' : 'text-gray-400'}`}>
-                                            <Clock size={10} />
-                                            <span className="text-[10px] font-medium">{new Date(wf.updated_at).toLocaleDateString()}</span>
-                                        </div>
-                                    </button>
-                                ))
                             )}
                         </div>
-                    </aside>
-                )}
 
-                {!showCanvas ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50/50">
-                        <div className="bg-white p-12 rounded-[2.5rem] shadow-xl border border-gray-100 max-w-sm text-center transform transition-all hover:scale-[1.02]">
-                            <div className="h-20 w-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                                <Shield size={40} strokeWidth={1.5} />
-                            </div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">
-                                {(isViewer || isOwner)
-                                    ? (allAvailableWorkflows.filter(w => w.hierarchy_level === selectedLevel).length > 0 ? "Select a Process" : "No Process Assigned")
-                                    : (isAnalyst || isAdmin) ? "Start Your Design" : "No Access"}
-                            </h2>
-                            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-                                {(isViewer || isOwner)
-                                    ? (allAvailableWorkflows.filter(w => w.hierarchy_level === selectedLevel).length > 0
-                                        ? `Please select a process from the Navigator on the left to view the L${selectedLevel} diagram.`
-                                        : `There are no processes assigned to the L${selectedLevel} hierarchy level yet.`)
-                                    : (isAnalyst || isAdmin) ? "You haven't selected a process to edit. Select one from the navigator or start a new one." : "No workflows found. Create one or wait for assignment."}
-                            </p>
-                            <button
-                                onClick={() => {
-                                    if (isCreator) {
-                                        resetWorkflow();
-                                        setNewName('');
-                                        setNewLevel(selectedLevel || 4);
-                                        setShowNamingModal(true);
-                                    } else {
-                                        fetchUserWorkflow();
-                                    }
-                                }}
-                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
-                            >
-                                {isCreator ? "Begin New Process" : "Refresh Status"}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 relative h-full">
-                        <Canvas readOnly={!canEdit} canAddComments={canAddComments} />
-                    </div>
-                )}
-            </div>
-
-
-            {/* Create Process Modal */}
-            {showNamingModal && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900">Create New Process</h3>
-                            <button onClick={() => setShowNamingModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-2">Process Name</label>
-                                <input
-                                    type="text"
-                                    value={newName}
-                                    onChange={(e) => setNewName(e.target.value)}
-                                    placeholder="Enter process name..."
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm"
-                                    autoFocus
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-2">Hierarchy Level</label>
-                                <select
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white"
-                                    value={newLevel}
-                                    onChange={(e) => setNewLevel(Number(e.target.value))}
-                                >
-                                    <option value={1}>L1 - Restricted</option>
-                                    <option value={2}>L2 - Confidential</option>
-                                    <option value={3}>L3 - Internal</option>
-                                    <option value={4}>L4 - Public</option>
-                                </select>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    if (!newName.trim()) return;
-                                    useStore.setState({ workflowName: newName, hierarchyLevel: newLevel });
-                                    setIsCreating(true);
-                                    setShowNamingModal(false);
-                                }}
-                                disabled={!newName.trim()}
-                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:opacity-50 transition-all"
-                            >
-                                Start Designing
-                            </button>
+                        <div className="flex-1 rounded-2xl border border-gray-200 bg-white shadow-sm relative flex flex-col overflow-hidden">
+                            {renderTable()}
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Submit for Review Modal */}
-            {showReviewerModal && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-900">Submit for Review</h3>
-                            <button onClick={() => setShowReviewerModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 mb-4">Select a Reviewer to assign this workflow to.</p>
-                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-2">Assign Reviewer</label>
-                            <select
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white mb-6"
-                                value={selectedReviewer}
-                                onChange={(e) => setSelectedReviewer(e.target.value)}
-                            >
-                                <option value="">Select a Reviewer...</option>
-                                {reviewers.map(r => (
-                                    <option key={r.id} value={r.id}>{r.full_name} ({r.role})</option>
-                                ))}
-                            </select>
+            {/* Full Screen Dialog for SVG Process */}
+            {selectedProcessId && selectedClientId && (
+                <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-1 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full h-full max-h-full flex flex-col overflow-hidden">
+                        {/* Dialog Header */}
+                        <div className="h-16 px-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center flex-shrink-0">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={() => setSelectedProcessId(null)}
+                                    className="text-sm font-bold text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-white transition flex items-center gap-2 shadow-sm bg-gray-50"
+                                >
+                                    <ArrowLeft size={16} /> Back
+                                </button>
+                                <div className="h-6 border-r border-gray-300"></div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 leading-tight">
+                                        Dynamic Process Flow
+                                    </h2>
+                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">
+                                        Process ID: {selectedProcessId}
+                                    </p>
+                                </div>
+                            </div>
                             <button
-                                onClick={handleSubmitForReview}
-                                disabled={!selectedReviewer || loading}
-                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:opacity-50 transition-all"
+                                onClick={() => setSelectedProcessId(null)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition"
                             >
-                                {loading ? 'Submitting...' : 'Confirm Submission'}
+                                <X size={20} />
                             </button>
+                        </div>
+
+                        {/* Dialog Content */}
+                        <div className="flex-1 overflow-auto bg-slate-50 relative flex">
+                            <SVGProcessDynamic processId={selectedProcessId} clientId={selectedClientId} />
                         </div>
                     </div>
                 </div>

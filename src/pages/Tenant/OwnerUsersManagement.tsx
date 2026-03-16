@@ -30,7 +30,7 @@ export const OwnerUsersManagement = () => {
         email: '',
         password: '',
         role: 'Viewer',
-        hierarchy_level: 4
+        hierarchy_level: 0
     });
 
     // For Editing
@@ -84,7 +84,7 @@ export const OwnerUsersManagement = () => {
                         full_name: formData.name,
                         role: formData.role,
                         tenant_id: profile?.tenant_id,
-                        hierarchy_level: formData.hierarchy_level
+                        hierarchy_level: formData.role === 'Viewer' ? formData.hierarchy_level : null
                     }
                 }
             });
@@ -97,7 +97,7 @@ export const OwnerUsersManagement = () => {
                     target_user_id: authData.user.id,
                     new_full_name: formData.name,
                     new_role: formData.role,
-                    new_hierarchy_level: formData.hierarchy_level
+                    new_hierarchy_level: formData.role === 'Viewer' ? formData.hierarchy_level : null
                 });
 
                 if (rpcError) throw rpcError;
@@ -105,7 +105,7 @@ export const OwnerUsersManagement = () => {
 
             showNotification(`User ${formData.name} created successfully!`, 'success');
             setIsModalOpen(false);
-            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 4 });
+            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 0 });
             fetchUsers();
         } catch (err: any) {
             showNotification('Error creating user: ' + err.message, 'error');
@@ -125,7 +125,7 @@ export const OwnerUsersManagement = () => {
                 target_user_id: editingUser.id,
                 new_full_name: formData.name,
                 new_role: formData.role,
-                new_hierarchy_level: formData.hierarchy_level
+                new_hierarchy_level: formData.role === 'Viewer' ? formData.hierarchy_level : null
             });
 
             if (rpcError) throw rpcError;
@@ -183,7 +183,7 @@ export const OwnerUsersManagement = () => {
                     <button
                         onClick={() => {
                             setEditingUser(null);
-                            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 4 });
+                            setFormData({ name: '', email: '', password: '', role: 'Viewer', hierarchy_level: 0 });
                             setIsModalOpen(true);
                         }}
                         className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 font-semibold"
@@ -245,7 +245,7 @@ export const OwnerUsersManagement = () => {
                                                 email: user.username || '',
                                                 password: '',
                                                 role: user.role || 'Viewer',
-                                                hierarchy_level: (user as any).hierarchy_level || 4
+                                                hierarchy_level: (user as any).hierarchy_level ?? 0
                                             });
                                             setIsModalOpen(true);
                                         }}
@@ -348,6 +348,7 @@ export const OwnerUsersManagement = () => {
                                     value={formData.hierarchy_level}
                                     onChange={(val) => setFormData({ ...formData, hierarchy_level: parseInt(val) })}
                                     options={[
+                                        { value: 0, label: 'L0 (Enterprise View & Below)' },
                                         { value: 1, label: 'L1 (Direct View & Below)' },
                                         { value: 2, label: 'L2 (Department View & Below)' },
                                         { value: 3, label: 'L3 (Team View & Below)' },
@@ -357,7 +358,7 @@ export const OwnerUsersManagement = () => {
                             )}
                             {formData.role === 'Viewer' && (
                                 <p className="text-[10px] text-gray-500 ml-1">
-                                    L1 sees L1-L4. L2 sees L2-L4. L3 sees L3-L4. L4 sees L4.
+                                    L0 sees L0-L4. L1 sees L1-L4. L2 sees L2-L4. L3 sees L3-L4. L4 sees L4.
                                 </p>
                             )}
 
