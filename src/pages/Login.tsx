@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Layers, ArrowRight, Workflow, Zap, Users } from 'lucide-react';
+import { Layers, ArrowRight, Workflow, Zap, Network, Shield, Activity, Globe } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -130,9 +130,9 @@ export const Login = () => {
     };
 
     return (
-        <div className="h-screen flex overflow-hidden" >
+        <div className="flex " >
             {/* Left Side - BPM Showcase */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 p-12 flex-col justify-between relative overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 p-12 flex-col justify-between relative">
                 <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
                     <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-300 rounded-full blur-3xl"></div>
@@ -146,47 +146,148 @@ export const Login = () => {
                         <span className="text-2xl font-bold">{t('app_name')}</span>
                     </div>
 
-                    <h1 className="text-3xl font-bold text-white mb-6 leading-tight">
+                    <h1 className="text-2xl font-bold text-white mb-2 leading-tight">
                         {t('streamline')}
                     </h1>
-                    <p className="text-xl text-blue-100 mb-8 max-w-lg">
+                    <p className="text-md text-blue-100 mb-4 max-w-lg">
                         {t('streamline_desc')}
                     </p>
 
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <div className="space-y-2">
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
                             <div className="p-2 bg-blue-500 rounded-lg">
-                                <Workflow size={24} className="text-white" />
+                                <Workflow size={20} className="text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold mb-1">{t('visual_designer')}</h3>
-                                <p className="text-blue-100 text-sm">{t('visual_designer_desc')}</p>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('visual_designer')}</h3>
+                                <p className="text-blue-100 text-xs">{t('visual_designer_desc')}</p>
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
                             <div className="p-2 bg-purple-500 rounded-lg">
-                                <Zap size={24} className="text-white" />
+                                <Zap size={20} className="text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold mb-1">{t('collaboration')}</h3>
-                                <p className="text-blue-100 text-sm">{t('collaboration_desc')}</p>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('collaboration')}</h3>
+                                <p className="text-blue-100 text-xs">{t('collaboration_desc')}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
+                            <div className="p-2 bg-indigo-500 rounded-lg">
+                                <Network size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('hierarchy')}</h3>
+                                <p className="text-blue-100 text-xs">{t('hierarchy_desc')}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
+                            <div className="p-2 bg-cyan-500 rounded-lg">
+                                <Shield size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('security')}</h3>
+                                <p className="text-blue-100 text-xs">{t('security_desc')}</p>
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                            <div className="p-2 bg-pink-500 rounded-lg">
-                                <Users size={24} className="text-white" />
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
+                            <div className="p-2 bg-amber-500 rounded-lg">
+                                <Activity size={20} className="text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold mb-1">{t('security')}</h3>
-                                <p className="text-blue-100 text-sm">{t('security_desc')}</p>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('tracking')}</h3>
+                                <p className="text-blue-100 text-xs">{t('tracking_desc')}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
+                            <div className="p-2 bg-emerald-500 rounded-lg">
+                                <Globe size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-white text-sm font-semibold mb-1">{t('lng_support')}</h3>
+                                <p className="text-blue-100 text-xs">{t('lng_support_desc')}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-6 flex flex-col gap-3 bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 shadow-inner align-center">
+                        <div className="flex items-center justify-between">
+                            <span className="text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                                Live Process
+                            </span>
+                            <span className="text-blue-200 text-xs font-medium bg-blue-500/20 px-2 py-0.5 rounded-full">Order Fulfillment</span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 overflow-x-auto pb-1 pb-scrollbar-hide align-center">
+                            {/* DONE NODE */}
+                            <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                                <div className="w-8 h-8 rounded-full bg-green-500/20 border-2 border-green-400 flex items-center justify-center shadow-[0_0_10px_rgba(74,222,128,0.3)]">
+                                    <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span className="text-[10px] text-green-300 font-medium text-center">Order In</span>
+                            </div>
+
+                            <div className="flex-1 h-0.5 bg-green-500/40 relative mt-[-14px]">
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 -mt-0.5 w-2 h-2 border-t-2 border-r-2 border-green-400 transform rotate-45"></div>
+                            </div>
+
+                            {/* DONE NODE */}
+                            <div className="flex flex-col items-center gap-1.5 min-w-[60px] mt-1">
+                                <div className="w-8 h-8 rounded-md bg-green-500/20 border-2 border-green-400 flex items-center justify-center transform rotate-45 shadow-[0_0_10px_rgba(74,222,128,0.3)]">
+                                    <svg className="w-3.5 h-3.5 text-green-400 -rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span className="text-[10px] text-green-300 font-medium text-center">Validate</span>
+                            </div>
+
+                            <div className="flex-1 h-0.5 bg-gradient-to-r from-green-500/40 to-blue-500/40 relative  mt-[-14px]">
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 -mt-0.5 w-2 h-2 border-t-2 border-r-2 border-blue-400 transform rotate-45"></div>
+                            </div>
+
+                            {/* ACTIVE NODE */}
+                            <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-blue-400 rounded-lg blur opacity-40 animate-pulse"></div>
+                                    <div className="relative w-10 h-8 rounded-lg bg-blue-600 border-2 border-blue-300 flex items-center justify-center shadow-lg">
+                                        <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <span className="text-[10px] text-white font-bold text-center bg-blue-500/30 px-1.5 py-0.5 rounded">Pack</span>
+                            </div>
+
+                            <div className="flex-1 h-0.5 bg-white/20 relative mt-[-14px]">
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 -mt-0.5 w-2 h-2 border-t-2 border-r-2 border-white/30 transform rotate-45"></div>
+                            </div>
+
+                            {/* PENDING NODE */}
+                            <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                                <div className="w-8 h-8 rounded-lg bg-white/5 border-2 border-white/20 border-dashed flex items-center justify-center">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                                </div>
+                                <span className="text-[10px] text-white/50 text-center">Ship</span>
+                            </div>
+
+                            <div className="flex-1 h-0.5 bg-white/20 relative mt-[-14px]">
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 -mt-0.5 w-2 h-2 border-t-2 border-r-2 border-white/30 transform rotate-45"></div>
+                            </div>
+
+                            {/* END NODE */}
+                            <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                                <div className="w-8 h-8 rounded-full bg-white/5 border-[3px] border-white/20 flex items-center justify-center"></div>
+                                <span className="text-[10px] text-white/50 font-bold text-center">Close</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="relative z-10 text-blue-100 text-sm flex justify-between items-center">
+                <div className="relative z-10 text-blue-100 text-sm flex justify-between items-center mt-2">
                     <span>© 2026 {t('app_name')}. All rights reserved.</span>
                 </div>
             </div>
