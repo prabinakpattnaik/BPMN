@@ -131,8 +131,8 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
                             shape.icon_opt,
                             shape.icon_br,
                             shape.icon_rpa,
-                            shape.icon_acct,
-                            shape.icon_help
+                            shape.icon_help,
+                            shape.icon_acct
                         ].filter(Boolean) as string[];
 
                         const subLabels = [
@@ -212,27 +212,40 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
         setCoords({ x, y, show: true, px: e.clientX, py: e.clientY });
     };
 
-    const renderIcons = (icons: string[] | undefined) => {
+    const renderIcons = (icons: string[] | undefined, link: string | undefined) => {
         if (!icons) return null;
         let rightBarIdx = 0;
         let bottomIdx = 0;
 
-        return icons.map((icon, idx) => {
+        // Ensure bottom row icons are sorted: HELP_1, HELP_2, then AACT_1, MACT_1 ($ icons)
+        const sortedIcons = [...icons].sort((a, b) => {
+            const order = ['HELP_1', 'HELP_2', 'AACT_1', 'MACT_1'];
+            const idxA = order.indexOf(a);
+            const idxB = order.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return 0;
+        });
+
+        return sortedIcons.map((icon, idx) => {
             let iconX = 0;
             let iconY = 0;
             let width = 15;
             let height = 15;
+            let URLLink = "";
 
-            if (['URL_2', 'BATCH_2', 'ROBO_2', 'AACT_2'].includes(icon)) {
+            if (['URL_2', 'URL_1', 'BATCH_2', 'ROBO_2', 'AACT_2'].includes(icon)) {
                 iconX = 105;
                 iconY = rightBarIdx * 20;
+                URLLink = link || "";
                 rightBarIdx++;
             } else if (icon === 'SOPTM' || icon === 'OPTM') {
                 iconX = 1;
                 iconY = 0;
                 width = 4;
                 height = 20;
-            } else if (icon === 'HELP_2') {
+            } else if (['HELP_2', 'HELP_1', 'AACT_1', 'MACT_1'].includes(icon)) {
                 iconX = bottomIdx * 15;
                 iconY = 54;
                 bottomIdx++;
@@ -240,9 +253,25 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
                 height = 18;
             }
 
-            return (
+            const useElement = (
                 <use key={`${icon}-${idx}`} href={`#${icon}`} x={iconX} y={iconY} width={width} height={height} className={icon} />
             );
+
+            if ((icon === 'URL_2' || icon === 'URL_1') && URLLink) {
+                const formattedLink = URLLink.startsWith('http://') || URLLink.startsWith('https://')
+                    ? URLLink
+                    : `https://${URLLink}`;
+                console.log("formattedLink--->", formattedLink)
+                return (
+                    <a key={`${icon}-${idx}`} href={formattedLink} target="_blank" rel="noopener noreferrer" style={{ cursor: 'pointer' }}>
+                        {/* Invisible solid hit area to make the entire 15x15 icon box clickable */}
+                        <rect x={iconX} y={iconY} width={width} height={height} fill="transparent" pointerEvents="all" />
+                        {useElement}
+                    </a>
+                );
+            }
+
+            return useElement;
         });
     };
 
@@ -365,6 +394,21 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
                                     <text x="12" y="16" fontSize="12" fontFamily="Inter, sans-serif" fill="white" fontWeight="900" textAnchor="middle">?</text>
                                 </symbol>
 
+                                <symbol id="HELP_1" viewBox="0 0 24 24">
+                                    <rect x="4" y="4" width="16" height="16" fill="darkblue" stroke="white" strokeWidth={1.5} rx="8px" />
+                                    <text x="9" y="16" fontSize={12} fontFamily="sans-serif" stroke="white" strokeWidth={0.5}>? </text>
+                                </symbol>
+
+                                <symbol id="AACT_1" viewBox="0 0 24 24">
+                                    <rect x="4" y="4" width="16" height="16" fill="HONEYDEW" stroke="HONEYDEW" strokeWidth={1.5} rx="8px" />
+                                    <text x="9" y="16" fontSize={12} fontFamily="sans-serif" stroke="none" strokeWidth={0.5}>$ </text>
+                                </symbol>
+
+                                <symbol id="MACT_1" viewBox="0 0 24 24">
+                                    <rect x="4" y="4" width="16" height="16" fill="Orange" stroke="Orange" strokeWidth={1.5} rx="8px" />
+                                    <text x="9" y="16" fontSize={12} fontFamily="sans-serif" stroke="none" strokeWidth={0.5}>$ </text>
+                                </symbol>
+
                                 <symbol id="EVNT_1" viewBox="0 0 50 50">
                                     <circle cx="25" cy="25" stroke="#ef4444" strokeWidth="2.5" fill="#fee2e2" r="22" />
                                     <text x="25" y="30" className="text-[10px] font-black fill-red-800" textAnchor="middle">END</text>
@@ -391,6 +435,10 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
                                 </symbol>
 
                                 <symbol id="URL_2" viewBox="0 0 24 24">
+                                    <path d="M14 4 H21 V10 H19 V6.41 L10.41 15 L9 13.59 L17.59 5 H14 Z M5 4 H11 V7 H7 V17 H17 V13 H19 V19 H5 Z" fill="#64748b" />
+                                </symbol>
+
+                                <symbol id="URL_1" viewBox="0 0 24 24">
                                     <path d="M14 4 H21 V10 H19 V6.41 L10.41 15 L9 13.59 L17.59 5 H14 Z M5 4 H11 V7 H7 V17 H17 V13 H19 V19 H5 Z" fill="#64748b" />
                                 </symbol>
 
@@ -482,7 +530,7 @@ const SVGProcessDynamic = ({ clientId = '175d4f53-8530-4517-86d0-64f844305551', 
 
                                         {node.type === 'TASK_2' && (
                                             <>
-                                                {renderIcons(node.icons)}
+                                                {renderIcons(node.icons, node.link)}
                                                 <text x="10" y="0" className="select-none pointer-events-none">
                                                     {node.topText && (
                                                         <tspan className="fill-slate-400 text-[9px] font-semibold" x="10" dy="-.6em">{node.topText}</tspan>
